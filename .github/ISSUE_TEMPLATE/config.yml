@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: AgileBuilder Core Discussions
+    url: https://github.com/agilebuilder/agilebuilder-core/issues
+    about: Use GitHub Issues for public bug reports and feature requests.
