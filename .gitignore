@@ -1,0 +1,37 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+.env
+.env.local
+.vscode/
+.npmrc
+*.db
+*.db-journal
+*.pem
+*.key
+*.p12
+*.crt
+*.cer
+ui/dist/
+ui/node_modules/
+
+# TypeScript compiled output in src directory
+src/**/*.js
+src/**/*.d.ts
+src/**/*.js.map
+src/**/*.d.ts.map
+
+test2
+*.tgz
+coverage/
+
+# 测试/调试脚本目录
+test-script/
+
+# Internal docs kept locally but excluded from open-source releases
+docs/_internal/
+opensource/
+.opensource*
+
+docs/

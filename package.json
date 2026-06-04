@@ -1,0 +1,61 @@
+{
+  "name": "@agilebuilder/core1",
+  "version": "0.1.0",
+  "description": "Lightweight AgileBuilder CLI for local/cloud resources, template generation, and MCP.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "agilebuilder": "./bin/agilebuilder.js",
+    "ag": "./bin/agilebuilder.js",
+    "agilebuilder-mcp": "./bin/mcp.js"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "build": "npm run clean && tsc",
+    "dev": "tsx src/cli/index.ts",
+    "start": "node dist/cli/index.js",
+    "test": "npm run build && node --test dist/**/*.test.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "agilebuilder",
+    "cli",
+    "template",
+    "mcp",
+    "scaffold"
+  ],
+  "author": "AgileBuilder",
+  "license": "MIT",
+  "dependencies": {
+    "@inquirer/prompts": "^8.3.0",
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "chalk": "^5.6.2",
+    "commander": "^14.0.2",
+    "ejs": "^3.1.10",
+    "minimatch": "^10.1.1",
+    "simple-git": "^3.33.0",
+    "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@types/ejs": "^3.1.5",
+    "@types/node": "^20.19.25",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
