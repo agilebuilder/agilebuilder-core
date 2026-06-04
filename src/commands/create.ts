@@ -6,6 +6,10 @@ import { writeSuccess } from '../output/format.js';
 import { LocalResourceRepository } from '../resources/local-repository.js';
 import { TemplateEngine } from '../template/engine.js';
 import { parseVarAssignments, parseVarsJson } from '../template/variables.js';
+import { WorkspaceStore } from '../workspace/store.js';
+import { LOCAL_SPACE_ID } from '../shared/constants.js';
+import { CloudResourceRepository } from '../resources/cloud-repository.js';
+import type { CloudResourceDetail } from '../client/client-api.js';
 
 interface CreateOptions {
   gitUrl?: string;
@@ -32,6 +36,7 @@ async function loadVariables(options: CreateOptions): Promise<Record<string, unk
 
 export function createCreateCommand(): Command {
   const repository = new LocalResourceRepository();
+  const cloudRepository = new CloudResourceRepository();
   const engine = new TemplateEngine();
 
   return new Command('create')
@@ -63,18 +68,28 @@ export function createCreateCommand(): Command {
           });
         }
 
-        const resource = await repository.require(resourceId);
-        if (resource.type !== 'template') {
-          throw new AppError({
-            code: 'CREATE_REQUIRES_TEMPLATE',
-            message: t('create.requiresTemplate', { id: resourceId }),
-            category: 'validation',
-          });
-        }
+        const current = WorkspaceStore.getCurrent();
+        if (current.id === LOCAL_SPACE_ID) {
+          const resource = await repository.require(resourceId);
+          if (resource.type !== 'template') {
+            throw new AppError({
+              code: 'CREATE_REQUIRES_TEMPLATE',
+              message: t('create.requiresTemplate', { id: resourceId }),
+              category: 'validation',
+            });
+          }
 
-        gitUrl = resource.gitUrl;
-        branch = branch || resource.branch;
-        subdir = subdir || resource.subdir;
+          gitUrl = resource.gitUrl;
+          branch = branch || resource.branch;
+          subdir = subdir || resource.subdir;
+        } else {
+          const resource = await cloudRepository.get(current.id, resourceId);
+          const source = extractCloudGitSource(resource);
+          gitUrl = source.gitUrl;
+          branch = branch || source.branch;
+          subdir = subdir || source.subdir;
+          await cloudRepository.recordAccess(current.id, resourceId).catch(() => undefined);
+        }
       }
 
       const result = await engine.generateFromGit({
@@ -90,4 +105,34 @@ export function createCreateCommand(): Command {
 
       writeSuccess(result, options);
     });
+}
+
+function extractCloudGitSource(resource: CloudResourceDetail): {
+  gitUrl: string;
+  branch?: string;
+  subdir?: string;
+} {
+  if (resource.type !== 'template' || !resource.template) {
+    throw new AppError({
+      code: 'CREATE_REQUIRES_TEMPLATE',
+      message: t('create.requiresTemplate', { id: resource.id }),
+      category: 'validation',
+    });
+  }
+
+  const git = resource.template.definition?.source?.git;
+  const gitUrl = git?.repo || resource.template.gitRepo;
+  if (!gitUrl) {
+    throw new AppError({
+      code: 'CLOUD_TEMPLATE_GIT_SOURCE_REQUIRED',
+      message: `Cloud template ${resource.id} does not expose a Git source.`,
+      category: 'validation',
+    });
+  }
+
+  return {
+    gitUrl,
+    branch: git?.branch || resource.template.gitBranch || 'main',
+    subdir: git?.subfolder,
+  };
 }

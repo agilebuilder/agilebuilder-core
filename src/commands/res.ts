@@ -5,6 +5,9 @@ import { t } from '../i18n/index.js';
 import { printError, writeSuccess } from '../output/format.js';
 import { LocalResourceRepository } from '../resources/local-repository.js';
 import type { ResourceType } from '../resources/types.js';
+import { WorkspaceStore } from '../workspace/store.js';
+import { LOCAL_SPACE_ID } from '../shared/constants.js';
+import { CloudResourceRepository } from '../resources/cloud-repository.js';
 
 interface JsonOption {
   json?: boolean;
@@ -49,6 +52,7 @@ function parseResourceType(value: string | undefined): ResourceType | undefined 
 
 export function createResCommand(): Command {
   const repository = new LocalResourceRepository();
+  const cloudRepository = new CloudResourceRepository();
   const command = new Command('res')
     .alias('resource')
     .description(t('res.description'));
@@ -61,8 +65,14 @@ export function createResCommand(): Command {
     .option('--json', 'Output JSON')
     .action(async (options: ListOptions) => {
       const type = parseResourceType(options.type);
-      const items = await repository.list({ type });
-      writeSuccess({ items, total: items.length }, options);
+      const current = WorkspaceStore.getCurrent();
+      if (current.id === LOCAL_SPACE_ID) {
+        const items = await repository.list({ type });
+        writeSuccess({ workspaceId: current.id, items, total: items.length }, options);
+        return;
+      }
+      const result = await cloudRepository.list({ spaceId: current.id, type });
+      writeSuccess({ workspaceId: current.id, ...result }, options);
     });
 
   command
@@ -73,8 +83,14 @@ export function createResCommand(): Command {
     .option('--json', 'Output JSON')
     .action(async (keyword: string, options: ListOptions) => {
       const type = parseResourceType(options.type);
-      const items = await repository.list({ type, keyword });
-      writeSuccess({ items, total: items.length }, options);
+      const current = WorkspaceStore.getCurrent();
+      if (current.id === LOCAL_SPACE_ID) {
+        const items = await repository.list({ type, keyword });
+        writeSuccess({ workspaceId: current.id, items, total: items.length }, options);
+        return;
+      }
+      const result = await cloudRepository.list({ spaceId: current.id, type, keyword });
+      writeSuccess({ workspaceId: current.id, ...result }, options);
     });
 
   command
@@ -83,7 +99,10 @@ export function createResCommand(): Command {
     .description(t('res.get.description'))
     .option('--json', 'Output JSON')
     .action(async (id: string, options: JsonOption) => {
-      const resource = await repository.require(id);
+      const current = WorkspaceStore.getCurrent();
+      const resource = current.id === LOCAL_SPACE_ID
+        ? await repository.require(id)
+        : await cloudRepository.get(current.id, id);
       writeSuccess(resource, options);
     });
 
@@ -101,6 +120,7 @@ export function createResCommand(): Command {
     .option('--json', 'Output JSON')
     .description(t('res.add.template.description'))
     .action(async (options: AddTemplateOptions) => {
+      ensureLocalWorkspace();
       const resource = await repository.addTemplate({
         name: options.name,
         gitUrl: options.gitUrl,
@@ -124,6 +144,7 @@ export function createResCommand(): Command {
     .option('--json', 'Output JSON')
     .description(t('res.add.doc.description'))
     .action(async (options: AddDocOptions) => {
+      ensureLocalWorkspace();
       const content = options.file
         ? await readFile(options.file, 'utf8')
         : options.content;
@@ -155,6 +176,7 @@ export function createResCommand(): Command {
     .option('--yes', 'Confirm removal')
     .option('--json', 'Output JSON')
     .action(async (id: string, options: JsonOption & { yes?: boolean }) => {
+      ensureLocalWorkspace();
       if (!options.yes) {
         throw new AppError({
           code: 'CONFIRMATION_REQUIRED',
@@ -184,4 +206,15 @@ export function createResCommand(): Command {
     });
 
   return command;
+}
+
+function ensureLocalWorkspace(): void {
+  const current = WorkspaceStore.getCurrent();
+  if (current.id !== LOCAL_SPACE_ID) {
+    throw new AppError({
+      code: 'LOCAL_WORKSPACE_REQUIRED',
+      message: 'This command only writes local resources. Switch with ag space use local.',
+      category: 'validation',
+    });
+  }
 }

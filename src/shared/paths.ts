@@ -1,9 +1,8 @@
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-const dataDirOverride = process.env.AGILEBUILDER_CORE1_DATA_DIR;
-
 export function getDataDir(): string {
+  const dataDirOverride = process.env.AGILEBUILDER_CORE1_DATA_DIR;
   return dataDirOverride
     ? resolve(dataDirOverride)
     : join(homedir(), '.agilebuilder', 'core1');

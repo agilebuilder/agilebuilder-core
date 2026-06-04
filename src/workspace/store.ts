@@ -4,6 +4,7 @@ import { LOCAL_SPACE_ID } from '../shared/constants.js';
 import { getCurrentSpaceFilePath } from '../shared/paths.js';
 import { t } from '../i18n/index.js';
 import type { CurrentWorkspace, WorkspaceInfo } from './types.js';
+import type { CloudSpace } from '../client/client-api.js';
 
 export function getLocalWorkspace(): WorkspaceInfo {
   return {
@@ -12,6 +13,16 @@ export function getLocalWorkspace(): WorkspaceInfo {
     type: 'local',
     plan: 'free',
     features: ['local-resources', 'template-engine'],
+  };
+}
+
+export function cloudSpaceToWorkspace(space: CloudSpace): WorkspaceInfo {
+  return {
+    id: space.id,
+    name: space.name,
+    type: space.type,
+    plan: space.plan.type,
+    features: space.features,
   };
 }
 
