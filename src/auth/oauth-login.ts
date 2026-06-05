@@ -34,7 +34,7 @@ async function exchangeCode(input: {
   codeVerifier: string;
   redirectUri: string;
 }): Promise<OAuthTokenResponse> {
-  const response = await fetch(`${getBackendEndpoints().ssoUrl}/oauth/token`, {
+  const response = await fetch(`${getBackendEndpoints().ssoApiUrl}/oauth/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -68,7 +68,7 @@ export async function oauthLogin(onAuthUrl?: (url: string) => void): Promise<Use
   const redirectUri = `http://${CALLBACK_HOST}:${port}/callback`;
   const pkce = generatePKCE();
   const state = generateState();
-  const authUrl = new URL(`${getBackendEndpoints().ssoUrl}/oauth/authorize`);
+  const authUrl = new URL(`${getBackendEndpoints().ssoWebUrl}/oauth/authorize`);
   authUrl.searchParams.set('client_id', OAUTH_CLIENT_ID);
   authUrl.searchParams.set('redirect_uri', redirectUri);
   authUrl.searchParams.set('response_type', 'code');

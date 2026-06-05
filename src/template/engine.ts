@@ -1,8 +1,9 @@
-import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
+import { spawn } from 'node:child_process';
 import ejs from 'ejs';
 import { minimatch } from 'minimatch';
 import { simpleGit } from 'simple-git';
@@ -32,6 +33,8 @@ export interface GenerateResult {
   filesSkipped: string[];
   variables: Record<string, unknown>;
   configFile?: string;
+  hooksSkipped?: string[];
+  hooksExecuted?: string[];
 }
 
 function createHelpers(): Record<string, (value: string) => string> {
@@ -198,6 +201,68 @@ async function copyTemplateFiles(input: {
   return { filesWritten, filesSkipped };
 }
 
+async function runShell(script: string, cwd: string, env?: Record<string, string>): Promise<void> {
+  await new Promise<void>((resolvePromise, reject) => {
+    const child = spawn(script, {
+      cwd,
+      shell: true,
+      stdio: 'inherit',
+      env: { ...process.env, ...env },
+    });
+    child.once('error', reject);
+    child.once('exit', (code) => {
+      if (code === 0) {
+        resolvePromise();
+      } else {
+        reject(new Error(`Hook exited with code ${code ?? 'unknown'}.`));
+      }
+    });
+  });
+}
+
+async function executeHooks(input: {
+  config: TemplateConfig;
+  targetDir: string;
+  allowHooks?: boolean;
+}): Promise<{ hooksSkipped: string[]; hooksExecuted: string[] }> {
+  const hooksSkipped: string[] = [];
+  const hooksExecuted: string[] = [];
+  const afterWrite = input.config.hooks.after_write;
+  if (!afterWrite) {
+    return { hooksSkipped, hooksExecuted };
+  }
+
+  if (!input.allowHooks) {
+    hooksSkipped.push('after_write');
+    return { hooksSkipped, hooksExecuted };
+  }
+
+  if (afterWrite.scriptType !== 'shell') {
+    throw new AppError({
+      code: 'HOOK_TYPE_UNSUPPORTED',
+      message: `Unsupported hook script type: ${afterWrite.scriptType}`,
+      category: 'validation',
+    });
+  }
+
+  try {
+    await runShell(afterWrite.script, input.targetDir, afterWrite.env);
+    hooksExecuted.push('after_write');
+  } catch (error) {
+    if (afterWrite.errorHandling === 'continue' || afterWrite.errorHandling === 'warn') {
+      hooksSkipped.push('after_write');
+      return { hooksSkipped, hooksExecuted };
+    }
+    throw new AppError({
+      code: 'HOOK_FAILED',
+      message: error instanceof Error ? error.message : String(error),
+      category: 'system',
+    });
+  }
+
+  return { hooksSkipped, hooksExecuted };
+}
+
 export class TemplateEngine {
   async generateFromGit(options: GenerateFromGitOptions): Promise<GenerateResult> {
     const tempDir = join(tmpdir(), `agilebuilder-core1-${randomUUID()}`);
@@ -228,6 +293,11 @@ export class TemplateEngine {
         variables,
         keepGit: options.keepGit,
       });
+      const { hooksSkipped, hooksExecuted } = await executeHooks({
+        config: loaded.config,
+        targetDir: options.targetDir,
+        allowHooks: options.allowHooks,
+      });
 
       return {
         success: true,
@@ -236,6 +306,8 @@ export class TemplateEngine {
         filesSkipped,
         variables,
         configFile: loaded.fileName,
+        hooksSkipped,
+        hooksExecuted,
       };
     } finally {
       await rm(tempDir, { recursive: true, force: true });

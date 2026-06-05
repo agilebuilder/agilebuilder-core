@@ -3,25 +3,84 @@ import { ConfigStore } from '../config/store.js';
 export type ResolvedBackendProfile = 'china' | 'global';
 
 export interface BackendEndpoints {
-  ssoUrl: string;
+  ssoWebUrl: string;
+  ssoApiUrl: string;
   workspaceUrl: string;
 }
 
-const ENDPOINTS: Record<ResolvedBackendProfile, BackendEndpoints> = {
-  china: {
-    ssoUrl: process.env.AGILEBUILDER_SSO_URL || 'https://sso.agilebuilder.cn',
-    workspaceUrl: process.env.AGILEBUILDER_WORKSPACE_URL || 'https://api.agilebuilder.cn',
-  },
-  global: {
-    ssoUrl: process.env.AGILEBUILDER_SSO_URL || 'https://sso.agilebuilder.net',
-    workspaceUrl: process.env.AGILEBUILDER_WORKSPACE_URL || 'https://api.agilebuilder.net',
-  },
-};
+const CHINA_TIMEZONES = new Set([
+  'asia/shanghai',
+  'asia/chongqing',
+  'asia/harbin',
+  'asia/urumqi',
+]);
+
+function getDefaultEndpoints(profile: ResolvedBackendProfile): BackendEndpoints {
+  const explicit = getExplicitEndpoints(profile);
+  if (explicit) {
+    return explicit;
+  }
+
+  if (profile === 'china') {
+    return {
+      ssoWebUrl: 'https://auth.agilebuilder.cn',
+      ssoApiUrl: 'https://api-auth.agilebuilder.cn',
+      workspaceUrl: 'https://api-app.agilebuilder.cn',
+    };
+  }
+  return {
+    ssoWebUrl: 'https://auth.agilebuilder.net',
+    ssoApiUrl: 'https://api-auth.agilebuilder.net',
+    workspaceUrl: 'https://api-app.agilebuilder.net',
+  };
+}
+
+function getExplicitEndpoints(profile: ResolvedBackendProfile): BackendEndpoints | null {
+  const genericNames = [
+    'AGILEBUILDER_SSO_WEB_URL',
+    'AGILEBUILDER_SSO_API_URL',
+    'AGILEBUILDER_WORKSPACE_URL',
+  ] as const;
+  const genericValues = genericNames.map((name) => process.env[name]?.trim());
+  if (genericValues.some(Boolean)) {
+    assertAllConfigured(genericNames, genericValues);
+    return {
+      ssoWebUrl: genericValues[0]!,
+      ssoApiUrl: genericValues[1]!,
+      workspaceUrl: genericValues[2]!,
+    };
+  }
+
+  const profileNames = profile === 'china'
+    ? ['AG_BACKEND_CHINA_SSO_WEB_URL', 'AG_BACKEND_CHINA_SSO_URL', 'AG_BACKEND_CHINA_WORKSPACE_URL'] as const
+    : ['AG_BACKEND_GLOBAL_SSO_WEB_URL', 'AG_BACKEND_GLOBAL_SSO_URL', 'AG_BACKEND_GLOBAL_WORKSPACE_URL'] as const;
+  const profileValues = profileNames.map((name) => process.env[name]?.trim());
+  if (profileValues.some(Boolean)) {
+    assertAllConfigured(profileNames, profileValues);
+    return {
+      ssoWebUrl: profileValues[0]!,
+      ssoApiUrl: profileValues[1]!,
+      workspaceUrl: profileValues[2]!,
+    };
+  }
+
+  return null;
+}
+
+function assertAllConfigured(
+  names: readonly string[],
+  values: Array<string | undefined>,
+): void {
+  const missing = names.filter((_, index) => !values[index]);
+  if (missing.length > 0) {
+    throw new Error(`Incomplete backend configuration. Missing: ${missing.join(', ')}`);
+  }
+}
 
 function detectProfile(): ResolvedBackendProfile {
   const locale = Intl.DateTimeFormat().resolvedOptions().locale?.toLowerCase();
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone?.toLowerCase();
-  if (locale?.startsWith('zh-cn') || timezone === 'asia/shanghai') {
+  if (locale?.startsWith('zh-cn') || CHINA_TIMEZONES.has(timezone || '')) {
     return 'china';
   }
   return 'global';
@@ -33,5 +92,5 @@ export function getResolvedBackendProfile(): ResolvedBackendProfile {
 }
 
 export function getBackendEndpoints(): BackendEndpoints {
-  return ENDPOINTS[getResolvedBackendProfile()];
+  return getDefaultEndpoints(getResolvedBackendProfile());
 }

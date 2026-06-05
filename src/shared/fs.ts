@@ -1,15 +1,24 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
-export async function readJsonFile<T>(filePath: string, fallback: T): Promise<T> {
+function getErrorCode(error: unknown): string | undefined {
+  return typeof error === 'object' && error !== null && 'code' in error
+    ? String((error as { code: unknown }).code)
+    : undefined;
+}
+
+export async function readJsonFile<T>(filePath: string, initialValue: T): Promise<T> {
   try {
     const content = await readFile(filePath, 'utf8');
     if (!content.trim()) {
-      return fallback;
+      throw new Error(`JSON file is empty: ${filePath}`);
     }
     return JSON.parse(content) as T;
-  } catch {
-    return fallback;
+  } catch (error) {
+    if (getErrorCode(error) === 'ENOENT') {
+      return initialValue;
+    }
+    throw error;
   }
 }
 

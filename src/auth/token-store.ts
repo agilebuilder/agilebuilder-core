@@ -165,7 +165,7 @@ export class TokenStore {
   }
 
   private static async requestRefresh(auth: OAuthAuthData): Promise<OAuthAuthData> {
-    const response = await fetch(`${getBackendEndpoints().ssoUrl}/oauth/token`, {
+    const response = await fetch(`${getBackendEndpoints().ssoApiUrl}/oauth/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

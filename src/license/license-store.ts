@@ -1,15 +1,12 @@
-import { createVerify } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { getDataDir } from '../shared/paths.js';
 import { AppError } from '../errors/app-error.js';
 import { ClientApi, type LicenseResponse } from '../client/client-api.js';
 import { TokenStore } from '../auth/token-store.js';
+import { verifyLicenseSignature } from './signature.js';
 
 const LICENSE_CACHE_TTL_MS = 60 * 60 * 1000;
-
-// TODO: Replace this placeholder with the server public key before enabling strict verification.
-const LICENSE_PUBLIC_KEY = process.env.AGILEBUILDER_LICENSE_PUBLIC_KEY || '';
 
 function getLicenseFilePath(): string {
   return join(getDataDir(), 'license-cache.json');
@@ -18,21 +15,6 @@ function getLicenseFilePath(): string {
 export interface CachedLicense {
   fetchedAt: number;
   response: LicenseResponse;
-}
-
-function verifySignature(response: LicenseResponse): void {
-  if (!LICENSE_PUBLIC_KEY) {
-    return;
-  }
-  if (response.signature.algorithm !== 'RS256') {
-    throw new AppError({ code: 'LICENSE_ALGORITHM_UNSUPPORTED', message: 'Unsupported license signature algorithm.', category: 'permission' });
-  }
-  const verifier = createVerify('RSA-SHA256');
-  verifier.update(response.signature.payload);
-  const valid = verifier.verify(LICENSE_PUBLIC_KEY, response.signature.sign, 'base64');
-  if (!valid) {
-    throw new AppError({ code: 'LICENSE_SIGNATURE_INVALID', message: 'License signature is invalid.', category: 'permission' });
-  }
 }
 
 export class LicenseStore {
@@ -49,7 +31,7 @@ export class LicenseStore {
   }
 
   static save(response: LicenseResponse): void {
-    verifySignature(response);
+    verifyLicenseSignature(response);
     const filePath = getLicenseFilePath();
     mkdirSync(dirname(filePath), { recursive: true });
     const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;

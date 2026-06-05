@@ -28,7 +28,12 @@ function detectLocale(): LocaleCode {
   }
 
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone?.toLowerCase();
-  if (timezone === 'asia/shanghai' || timezone === 'asia/chongqing' || timezone === 'asia/harbin') {
+  if (
+    timezone === 'asia/shanghai'
+    || timezone === 'asia/chongqing'
+    || timezone === 'asia/harbin'
+    || timezone === 'asia/urumqi'
+  ) {
     return 'zh-CN';
   }
 
@@ -45,7 +50,10 @@ export function setLocale(locale: LocaleCode): void {
 }
 
 export function t(key: string, vars: Record<string, string | number | undefined> = {}): string {
-  const template = messages[currentLocale][key] ?? messages['en-US'][key] ?? key;
+  const template = messages[currentLocale][key];
+  if (!template) {
+    throw new Error(`Missing i18n message "${key}" for locale ${currentLocale}.`);
+  }
   return template.replace(/\{(\w+)\}/g, (_, name: string) => {
     const value = vars[name];
     return value === undefined ? '' : String(value);
@@ -56,5 +64,5 @@ export function normalizeLanguage(value: unknown): LanguageSetting {
   if (value === 'auto' || isLocale(typeof value === 'string' ? value : undefined)) {
     return value as LanguageSetting;
   }
-  return 'auto';
+  throw new Error(`Invalid language setting: ${String(value)}`);
 }

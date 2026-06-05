@@ -3,7 +3,9 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
   CallToolRequestSchema,
+  ListResourcesRequestSchema,
   ListToolsRequestSchema,
+  ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { APP_VERSION, LOCAL_SPACE_ID } from '../shared/constants.js';
 import { WorkspaceStore } from '../workspace/store.js';
@@ -17,6 +19,10 @@ import type { CloudResourceDetail } from '../client/client-api.js';
 const localRepository = new LocalResourceRepository();
 const cloudRepository = new CloudResourceRepository();
 const engine = new TemplateEngine();
+
+const USAGE_GUIDE_URI = 'agilebuilder://docs/usage';
+const LOCAL_DOC_PREFIX = 'agilebuilder://local/docs/';
+const CLOUD_DOC_PREFIX = 'agilebuilder://cloud/docs/';
 
 const server = new Server(
   { name: 'agilebuilder-core1-mcp', version: APP_VERSION },
@@ -52,6 +58,90 @@ function parseType(value: unknown): ResourceType | undefined {
   if (value === undefined || value === null || value === '') return undefined;
   if (value === 'template' || value === 'doc') return value;
   throw new AppError({ code: 'INVALID_RESOURCE_TYPE', message: `Invalid resource type: ${String(value)}`, category: 'validation' });
+}
+
+async function listMcpResources() {
+  const current = WorkspaceStore.getCurrent();
+  const resources = [
+    {
+      uri: USAGE_GUIDE_URI,
+      name: 'AgileBuilder Core1 Usage Guide',
+      mimeType: 'text/markdown',
+    },
+  ];
+
+  if (current.id === LOCAL_SPACE_ID) {
+    const docs = await localRepository.list({ type: 'doc' });
+    resources.push(...docs.map((doc) => ({
+      uri: `${LOCAL_DOC_PREFIX}${encodeURIComponent(doc.id)}`,
+      name: doc.name,
+      mimeType: doc.type === 'doc' && doc.format === 'markdown' ? 'text/markdown' : 'text/plain',
+    })));
+    return { resources };
+  }
+
+  const cloudDocs = await cloudRepository.list({ spaceId: current.id, type: 'doc' });
+  resources.push(...cloudDocs.items.map((doc) => ({
+    uri: `${CLOUD_DOC_PREFIX}${encodeURIComponent(doc.id)}`,
+    name: doc.name,
+    mimeType: 'text/markdown',
+  })));
+  return { resources };
+}
+
+function usageGuideText(): string {
+  return [
+    '# AgileBuilder Core1',
+    '',
+    'Available MCP tools:',
+    '',
+    '- `list_resources`: list resources in the current workspace.',
+    '- `search_resources`: search resources by keyword.',
+    '- `get_resource`: read one resource by ID.',
+    '- `create_project`: create a project from a resource ID or Git URL.',
+    '',
+    'Resources default to the currently selected AgileBuilder workspace.',
+  ].join('\n');
+}
+
+async function readMcpResource(uri: string) {
+  if (uri === USAGE_GUIDE_URI) {
+    return {
+      contents: [{ uri, mimeType: 'text/markdown', text: usageGuideText() }],
+    };
+  }
+
+  if (uri.startsWith(LOCAL_DOC_PREFIX)) {
+    const id = decodeURIComponent(uri.slice(LOCAL_DOC_PREFIX.length));
+    const resource = await localRepository.require(id);
+    if (resource.type !== 'doc') {
+      throw new AppError({ code: 'RESOURCE_NOT_DOC', message: `Resource ${id} is not a document.`, category: 'validation' });
+    }
+    return {
+      contents: [{ uri, mimeType: resource.format === 'markdown' ? 'text/markdown' : 'text/plain', text: resource.content }],
+    };
+  }
+
+  if (uri.startsWith(CLOUD_DOC_PREFIX)) {
+    const current = WorkspaceStore.getCurrent();
+    if (current.id === LOCAL_SPACE_ID) {
+      throw new AppError({ code: 'CLOUD_WORKSPACE_REQUIRED', message: 'Select a cloud workspace to read cloud docs.', category: 'validation' });
+    }
+    const id = decodeURIComponent(uri.slice(CLOUD_DOC_PREFIX.length));
+    const resource = await cloudRepository.get(current.id, id);
+    if (resource.type !== 'doc') {
+      throw new AppError({ code: 'RESOURCE_NOT_DOC', message: `Resource ${id} is not a document.`, category: 'validation' });
+    }
+    return {
+      contents: [{
+        uri,
+        mimeType: resource.doc?.format === 'text' ? 'text/plain' : 'text/markdown',
+        text: resource.doc?.content || '',
+      }],
+    };
+  }
+
+  throw new AppError({ code: 'RESOURCE_URI_UNSUPPORTED', message: `Unsupported resource URI: ${uri}`, category: 'validation' });
 }
 
 async function listResources(args: Record<string, unknown>) {
@@ -194,6 +284,23 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
   ],
 }));
+
+server.setRequestHandler(ListResourcesRequestSchema, async () => {
+  try {
+    return await listMcpResources();
+  } catch {
+    return { resources: [{ uri: USAGE_GUIDE_URI, name: 'AgileBuilder Core1 Usage Guide', mimeType: 'text/markdown' }] };
+  }
+});
+
+server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+  try {
+    return await readMcpResource(request.params.uri);
+  } catch (error) {
+    const appError = toAppError(error);
+    throw new Error(`[${appError.code}] ${appError.message}`);
+  }
+});
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {

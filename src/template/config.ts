@@ -32,8 +32,16 @@ export interface TemplateConfig {
     delimiter: string;
     inquirerQuestions: TemplateQuestion[];
   };
-  hooks: Record<string, unknown>;
+  hooks: Record<string, HookConfig | undefined>;
   market?: Record<string, unknown>;
+}
+
+export interface HookConfig {
+  stage?: string;
+  scriptType: 'shell' | 'nodejs' | 'custom';
+  script: string;
+  errorHandling: 'stop' | 'warn' | 'continue';
+  env?: Record<string, string>;
 }
 
 const CONFIG_FILE_NAMES = [
@@ -88,6 +96,32 @@ function normalizeQuestions(value: unknown): TemplateQuestion[] {
     }));
 }
 
+function normalizeHooks(value: unknown): Record<string, HookConfig | undefined> {
+  if (!isObject(value)) {
+    return {};
+  }
+  const hooks: Record<string, HookConfig | undefined> = {};
+  for (const [stage, hook] of Object.entries(value)) {
+    if (!isObject(hook) || typeof hook.script !== 'string') {
+      continue;
+    }
+    hooks[stage] = {
+      stage,
+      scriptType: hook.scriptType === 'shell' || hook.scriptType === 'nodejs' || hook.scriptType === 'custom'
+        ? hook.scriptType
+        : 'shell',
+      script: hook.script,
+      errorHandling: hook.errorHandling === 'warn' || hook.errorHandling === 'continue' || hook.errorHandling === 'stop'
+        ? hook.errorHandling
+        : 'stop',
+      env: isObject(hook.env)
+        ? Object.fromEntries(Object.entries(hook.env).filter((entry): entry is [string, string] => typeof entry[1] === 'string'))
+        : undefined,
+    };
+  }
+  return hooks;
+}
+
 export function normalizeTemplateConfig(value: unknown): TemplateConfig {
   if (!isObject(value)) {
     return DEFAULT_TEMPLATE_CONFIG;
@@ -119,7 +153,7 @@ export function normalizeTemplateConfig(value: unknown): TemplateConfig {
         : '%',
       inquirerQuestions: normalizeQuestions(variables.inquirerQuestions),
     },
-    hooks: isObject(value.hooks) ? value.hooks : {},
+    hooks: normalizeHooks(value.hooks),
     market: isObject(value.market) ? value.market : undefined,
   };
 }

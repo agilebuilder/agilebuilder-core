@@ -32,10 +32,19 @@ function now(): string {
 }
 
 function normalizeStore(value: LocalResourceStoreData): LocalResourceStoreData {
+  if (value.version !== 1) {
+    throw new Error(`Unsupported local resource store version: ${String(value.version)}`);
+  }
+  if (!Number.isInteger(value.nextId) || value.nextId <= 0) {
+    throw new Error('Invalid local resource store: nextId must be a positive integer.');
+  }
+  if (!Array.isArray(value.items)) {
+    throw new Error('Invalid local resource store: items must be an array.');
+  }
   return {
     version: 1,
-    nextId: Number.isInteger(value.nextId) && value.nextId > 0 ? value.nextId : 1,
-    items: Array.isArray(value.items) ? value.items : [],
+    nextId: value.nextId,
+    items: value.items,
   };
 }
 

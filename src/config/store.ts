@@ -32,17 +32,30 @@ const DEFAULT_CONFIG: CliConfig = {
   },
 };
 
+const CONFIG_PATHS = new Set([
+  'backend.profile',
+  'language',
+  'mcp.spaceIsolation',
+  'template.allowHooksDefault',
+]);
+
 function normalizeBackendProfile(value: unknown): BackendProfile {
-  return value === 'china' || value === 'global' || value === 'auto' ? value : 'auto';
+  if (value === 'china' || value === 'global' || value === 'auto') {
+    return value;
+  }
+  throw new Error(`Invalid backend.profile: ${String(value)}`);
 }
 
-function normalizeBoolean(value: unknown, fallback: boolean): boolean {
-  return typeof value === 'boolean' ? value : fallback;
+function requireBoolean(path: string, value: unknown): boolean {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  throw new Error(`Invalid ${path}: expected boolean.`);
 }
 
 function normalizeConfig(value: unknown): CliConfig {
   if (!value || typeof value !== 'object') {
-    return DEFAULT_CONFIG;
+    throw new Error('Invalid config: expected object.');
   }
 
   const raw = value as Partial<CliConfig>;
@@ -52,12 +65,22 @@ function normalizeConfig(value: unknown): CliConfig {
     },
     language: normalizeLanguage(raw.language),
     mcp: {
-      spaceIsolation: normalizeBoolean(raw.mcp?.spaceIsolation, true),
+      spaceIsolation: requireBoolean('mcp.spaceIsolation', raw.mcp?.spaceIsolation),
     },
     template: {
-      allowHooksDefault: normalizeBoolean(raw.template?.allowHooksDefault, false),
+      allowHooksDefault: requireBoolean('template.allowHooksDefault', raw.template?.allowHooksDefault),
     },
   };
+}
+
+function cloneDefaultConfig(): CliConfig {
+  return JSON.parse(JSON.stringify(DEFAULT_CONFIG)) as CliConfig;
+}
+
+function requireKnownPath(path: string): void {
+  if (!CONFIG_PATHS.has(path)) {
+    throw new Error(`Unknown config key: ${path}`);
+  }
 }
 
 function setByPath(target: Record<string, unknown>, path: string, value: unknown): void {
@@ -94,14 +117,10 @@ export class ConfigStore {
   static load(): CliConfig {
     const filePath = getConfigFilePath();
     if (!existsSync(filePath)) {
-      return DEFAULT_CONFIG;
+      return cloneDefaultConfig();
     }
 
-    try {
-      return normalizeConfig(JSON.parse(readFileSync(filePath, 'utf8')));
-    } catch {
-      return DEFAULT_CONFIG;
-    }
+    return normalizeConfig(JSON.parse(readFileSync(filePath, 'utf8')));
   }
 
   static save(config: CliConfig): void {
@@ -113,10 +132,12 @@ export class ConfigStore {
   }
 
   static get(path: string): unknown {
+    requireKnownPath(path);
     return getByPath(this.load(), path);
   }
 
   static set(path: string, rawValue: string): CliConfig {
+    requireKnownPath(path);
     const current = this.load();
     const mutable = JSON.parse(JSON.stringify(current)) as Record<string, unknown>;
     setByPath(mutable, path, parseConfigValue(rawValue));

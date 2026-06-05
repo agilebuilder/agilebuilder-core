@@ -1,0 +1,56 @@
+import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { promisify } from 'node:util';
+import test from 'node:test';
+
+const execFileAsync = promisify(execFile);
+
+async function git(cwd: string, args: string[]): Promise<void> {
+  await execFileAsync('git', args, { cwd });
+}
+
+async function runCli(args: string[], dataDir: string) {
+  return execFileAsync(process.execPath, [join(process.cwd(), 'dist', 'cli', 'index.js'), ...args], {
+    cwd: process.cwd(),
+    env: { ...process.env, AGILEBUILDER_CORE1_DATA_DIR: dataDir },
+  });
+}
+
+test('CLI can add a local template and create a project from it', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'ag-core1-cli-'));
+  const dataDir = join(dir, 'data');
+  const repo = join(dir, 'repo');
+  const target = join(dir, 'target');
+  try {
+    await git(dir, ['init', 'repo']);
+    await writeFile(join(repo, 'agilebuilder.yaml'), [
+      'version: 1',
+      'variables:',
+      '  enabled: true',
+      '  filePatterns:',
+      '    mode: include',
+      '    patterns:',
+      '      - "**/*.txt"',
+      '  inquirerQuestions:',
+      '    - name: projectName',
+      '      type: input',
+      '      message: Project name',
+      '      required: true',
+      '',
+    ].join('\n'), 'utf8');
+    await writeFile(join(repo, '{{ projectName }}.txt'), 'Hello <%= projectName %>\n', 'utf8');
+    await git(repo, ['add', '.']);
+    await git(repo, ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-m', 'init']);
+
+    await runCli(['res', 'add', 'template', '--name', 'demo', '--git-url', repo, '--branch', 'master', '--json'], dataDir);
+    const create = await runCli(['create', '1', '--target', target, '--var', 'projectName=cli-smoke', '--json'], dataDir);
+    const parsed = JSON.parse(create.stdout);
+    assert.equal(parsed.ok, true);
+    assert.match(await readFile(join(target, 'cli-smoke.txt'), 'utf8'), /Hello cli-smoke/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
