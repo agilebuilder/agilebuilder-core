@@ -147,6 +147,12 @@ export interface DeviceListResponse {
   activeCount: number;
 }
 
+export interface ClientUserSettings {
+  mcp?: {
+    spaceIsolation?: boolean;
+  };
+}
+
 export class ClientApi {
   static getUserProfile(token: string): Promise<UserInfo> {
     return ClientHttp.get<UserInfo>('/api/client/user/profile', { token });
@@ -213,5 +219,9 @@ export class ClientApi {
 
   static revokeAllOtherDevices(token: string): Promise<unknown> {
     return ClientHttp.post('/api/client/device/revoke-all', undefined, { token });
+  }
+
+  static getClientUserSettings(token: string): Promise<ClientUserSettings> {
+    return ClientHttp.get<ClientUserSettings>('/api/client/user/settings', { token });
   }
 }

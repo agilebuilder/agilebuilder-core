@@ -11,9 +11,6 @@ export interface CliConfig {
     profile: BackendProfile;
   };
   language: LanguageSetting;
-  mcp: {
-    spaceIsolation: boolean;
-  };
   template: {
     allowHooksDefault: boolean;
   };
@@ -24,9 +21,6 @@ const DEFAULT_CONFIG: CliConfig = {
     profile: 'auto',
   },
   language: 'auto',
-  mcp: {
-    spaceIsolation: true,
-  },
   template: {
     allowHooksDefault: false,
   },
@@ -35,7 +29,6 @@ const DEFAULT_CONFIG: CliConfig = {
 const CONFIG_PATHS = new Set([
   'backend.profile',
   'language',
-  'mcp.spaceIsolation',
   'template.allowHooksDefault',
 ]);
 
@@ -64,9 +57,6 @@ function normalizeConfig(value: unknown): CliConfig {
       profile: normalizeBackendProfile(raw.backend?.profile),
     },
     language: normalizeLanguage(raw.language),
-    mcp: {
-      spaceIsolation: requireBoolean('mcp.spaceIsolation', raw.mcp?.spaceIsolation),
-    },
     template: {
       allowHooksDefault: requireBoolean('template.allowHooksDefault', raw.template?.allowHooksDefault),
     },

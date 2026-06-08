@@ -5,6 +5,7 @@ import { createConfigCommand } from '../commands/config.js';
 import { createCreateCommand } from '../commands/create.js';
 import { createAuthCommand, createLoginCommand, createLogoutCommand } from '../commands/auth.js';
 import { createDeviceCommand } from '../commands/device.js';
+import { createMcpDebugResourcesCommand } from '../commands/mcp-debug-resources.js';
 import { createResCommand } from '../commands/res.js';
 import { createSpaceCommand } from '../commands/space.js';
 import { getEffectiveLocale, t } from '../i18n/index.js';
@@ -31,6 +32,7 @@ async function main(): Promise<void> {
   program.addCommand(createResCommand());
   program.addCommand(createCreateCommand());
   program.addCommand(createDeviceCommand());
+  program.addCommand(createMcpDebugResourcesCommand(), { hidden: true });
 
   program.showHelpAfterError();
   await program.parseAsync(process.argv);

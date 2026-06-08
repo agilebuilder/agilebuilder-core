@@ -23,13 +23,13 @@ function getDefaultEndpoints(profile: ResolvedBackendProfile): BackendEndpoints 
 
   if (profile === 'china') {
     return {
-      ssoWebUrl: 'https://auth.agilebuilder.cn',
+      ssoWebUrl: 'https://api-auth.agilebuilder.cn',
       ssoApiUrl: 'https://api-auth.agilebuilder.cn',
       workspaceUrl: 'https://api-app.agilebuilder.cn',
     };
   }
   return {
-    ssoWebUrl: 'https://auth.agilebuilder.net',
+    ssoWebUrl: 'https://api-auth.agilebuilder.net',
     ssoApiUrl: 'https://api-auth.agilebuilder.net',
     workspaceUrl: 'https://api-app.agilebuilder.net',
   };
