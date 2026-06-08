@@ -93,3 +93,69 @@ test('TemplateEngine skips hooks by default and runs them when allowed', async (
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('TemplateEngine warns and continues when no AgileBuilder config exists', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'ag-core1-no-config-'));
+  const repo = join(dir, 'repo');
+  const target = join(dir, 'target');
+  try {
+    await git(dir, ['init', 'repo']);
+    await writeFile(join(repo, 'README.md'), 'hello\n', 'utf8');
+    await git(repo, ['add', '.']);
+    await git(repo, ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-m', 'init']);
+
+    const result = await new TemplateEngine().generateFromGit({
+      gitUrl: repo,
+      targetDir: target,
+    });
+
+    assert.equal(result.configFile, undefined);
+    assert.deepEqual(result.warnings, ['No AgileBuilder template config file found; continuing with default config.']);
+    assert.equal((await readFile(join(target, 'README.md'), 'utf8')).replace(/\r\n/g, '\n'), 'hello\n');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('TemplateEngine can use a workspace-provided template config', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'ag-core1-workspace-config-'));
+  const repo = join(dir, 'repo');
+  const target = join(dir, 'target');
+  try {
+    await git(dir, ['init', 'repo']);
+    await writeFile(join(repo, '{{ projectName }}.txt'), 'Hello <%= projectName %>\n', 'utf8');
+    await git(repo, ['add', '.']);
+    await git(repo, ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-m', 'init']);
+
+    const result = await new TemplateEngine().generateFromGit({
+      gitUrl: repo,
+      targetDir: target,
+      variables: { projectName: 'from-workspace' },
+      templateConfig: {
+        version: 1,
+        variables: {
+          enabled: true,
+          filePatterns: {
+            mode: 'include',
+            patterns: ['**/*.txt'],
+          },
+          delimiter: '%',
+          inquirerQuestions: [
+            {
+              name: 'projectName',
+              type: 'input',
+              message: 'Project name',
+              required: true,
+            },
+          ],
+        },
+        hooks: {},
+      },
+    });
+
+    assert.deepEqual(result.warnings, []);
+    assert.equal((await readFile(join(target, 'from-workspace.txt'), 'utf8')).replace(/\r\n/g, '\n'), 'Hello from-workspace\n');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

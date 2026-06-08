@@ -284,6 +284,8 @@ Useful create options:
 ```
 
 By default, `.git` is stripped from generated output and hooks are not executed unless `--allow-hooks` is passed.
+If no AgileBuilder config file is found in the template root, `create` emits a warning and continues with the default config.
+For cloud template resources, `template.definition.configSource` controls where variables and hooks come from: `workspace` uses the workspace-provided definition, while `template_files` reads the template root config file.
 
 ## Config
 

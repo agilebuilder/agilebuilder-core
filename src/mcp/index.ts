@@ -12,9 +12,10 @@ import { WorkspaceStore } from '../workspace/store.js';
 import { LocalResourceRepository } from '../resources/local-repository.js';
 import { CloudResourceRepository } from '../resources/cloud-repository.js';
 import { TemplateEngine } from '../template/engine.js';
+import { cloudResourceToGenerateOptions } from '../template/cloud-resource.js';
 import { AppError, toAppError } from '../errors/app-error.js';
 import type { ResourceType } from '../resources/types.js';
-import type { CloudResourceDetail } from '../client/client-api.js';
+import type { TemplateConfig } from '../template/config.js';
 
 const localRepository = new LocalResourceRepository();
 const cloudRepository = new CloudResourceRepository();
@@ -168,19 +169,6 @@ async function getResource(args: Record<string, unknown>) {
   return { ok: true, data: resource };
 }
 
-function extractCloudGitSource(resource: CloudResourceDetail) {
-  const git = resource.template?.definition?.source?.git;
-  const gitUrl = git?.repo || resource.template?.gitRepo;
-  if (!gitUrl) {
-    throw new AppError({ code: 'CLOUD_TEMPLATE_GIT_SOURCE_REQUIRED', message: `Cloud template ${resource.id} does not expose a Git source.`, category: 'validation' });
-  }
-  return {
-    gitUrl,
-    branch: git?.branch || resource.template?.gitBranch || 'main',
-    subdir: git?.subfolder,
-  };
-}
-
 async function createProject(args: Record<string, unknown>) {
   const targetPath = String(args.targetPath || '');
   if (!targetPath) {
@@ -190,6 +178,7 @@ async function createProject(args: Record<string, unknown>) {
   let gitUrl = typeof args.gitUrl === 'string' ? args.gitUrl : undefined;
   let branch = typeof args.branch === 'string' ? args.branch : undefined;
   let subdir = typeof args.subdir === 'string' ? args.subdir : undefined;
+  let templateConfig: TemplateConfig | undefined;
   const variables = args.variables && typeof args.variables === 'object' && !Array.isArray(args.variables)
     ? args.variables as Record<string, unknown>
     : {};
@@ -210,10 +199,11 @@ async function createProject(args: Record<string, unknown>) {
       subdir = subdir || resource.subdir;
     } else {
       const resource = await cloudRepository.get(current.id, resourceId);
-      const source = extractCloudGitSource(resource);
+      const source = cloudResourceToGenerateOptions(resource);
       gitUrl = source.gitUrl;
       branch = branch || source.branch;
       subdir = subdir || source.subdir;
+      templateConfig = source.templateConfig;
       await cloudRepository.recordAccess(current.id, resourceId).catch(() => undefined);
     }
   }
@@ -224,6 +214,7 @@ async function createProject(args: Record<string, unknown>) {
     subdir,
     targetDir: targetPath,
     variables,
+    templateConfig,
     overwrite: args.overwrite === true,
     keepGit: args.keepGit === true,
   });

@@ -70,6 +70,7 @@ export interface CloudResourceDetail extends CloudResourceListItem {
     gitBranch?: string;
     variablesSchema?: Record<string, unknown>;
     definition?: {
+      configSource?: 'workspace' | 'template_files';
       source?: {
         type?: 'git' | 'upload' | 'editor';
         git?: {

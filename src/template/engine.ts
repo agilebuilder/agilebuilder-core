@@ -21,6 +21,7 @@ export interface GenerateFromGitOptions {
   subdir?: string;
   targetDir: string;
   variables?: Record<string, unknown>;
+  templateConfig?: TemplateConfig;
   overwrite?: boolean;
   keepGit?: boolean;
   allowHooks?: boolean;
@@ -33,6 +34,7 @@ export interface GenerateResult {
   filesSkipped: string[];
   variables: Record<string, unknown>;
   configFile?: string;
+  warnings?: string[];
   hooksSkipped?: string[];
   hooksExecuted?: string[];
 }
@@ -277,7 +279,13 @@ export class TemplateEngine {
       await git.clone(options.gitUrl, tempDir, cloneArgs);
 
       const rootDir = join(tempDir, options.subdir || '');
-      const loaded = await loadTemplateConfig(rootDir);
+      const warnings: string[] = [];
+      const loaded = options.templateConfig
+        ? { config: options.templateConfig, fileName: undefined }
+        : await loadTemplateConfig(rootDir);
+      if (!options.templateConfig && !loaded.fileName) {
+        warnings.push('No AgileBuilder template config file found; continuing with default config.');
+      }
       const sourceDir = join(rootDir, loaded.config.source?.subdir || '.');
       const variables = applyQuestionDefaults(
         loaded.config.variables.inquirerQuestions,
@@ -306,6 +314,7 @@ export class TemplateEngine {
         filesSkipped,
         variables,
         configFile: loaded.fileName,
+        warnings,
         hooksSkipped,
         hooksExecuted,
       };

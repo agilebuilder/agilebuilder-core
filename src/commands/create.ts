@@ -5,11 +5,12 @@ import { t } from '../i18n/index.js';
 import { writeSuccess } from '../output/format.js';
 import { LocalResourceRepository } from '../resources/local-repository.js';
 import { TemplateEngine } from '../template/engine.js';
+import { cloudResourceToGenerateOptions } from '../template/cloud-resource.js';
 import { parseVarAssignments, parseVarsJson } from '../template/variables.js';
 import { WorkspaceStore } from '../workspace/store.js';
 import { LOCAL_SPACE_ID } from '../shared/constants.js';
 import { CloudResourceRepository } from '../resources/cloud-repository.js';
-import type { CloudResourceDetail } from '../client/client-api.js';
+import type { TemplateConfig } from '../template/config.js';
 
 interface CreateOptions {
   gitUrl?: string;
@@ -57,6 +58,7 @@ export function createCreateCommand(): Command {
       let gitUrl = options.gitUrl;
       let branch = options.branch;
       let subdir = options.subdir;
+      let templateConfig: TemplateConfig | undefined;
 
       if (!gitUrl) {
         if (!resourceId) {
@@ -84,10 +86,11 @@ export function createCreateCommand(): Command {
           subdir = subdir || resource.subdir;
         } else {
           const resource = await cloudRepository.get(current.id, resourceId);
-          const source = extractCloudGitSource(resource);
+          const source = cloudResourceToGenerateOptions(resource);
           gitUrl = source.gitUrl;
           branch = branch || source.branch;
           subdir = subdir || source.subdir;
+          templateConfig = source.templateConfig;
           await cloudRepository.recordAccess(current.id, resourceId).catch(() => undefined);
         }
       }
@@ -98,6 +101,7 @@ export function createCreateCommand(): Command {
         subdir,
         targetDir: options.target!,
         variables,
+        templateConfig,
         overwrite: options.overwrite,
         keepGit: options.keepGit,
         allowHooks: options.allowHooks,
@@ -105,34 +109,4 @@ export function createCreateCommand(): Command {
 
       writeSuccess(result, options);
     });
-}
-
-function extractCloudGitSource(resource: CloudResourceDetail): {
-  gitUrl: string;
-  branch?: string;
-  subdir?: string;
-} {
-  if (resource.type !== 'template' || !resource.template) {
-    throw new AppError({
-      code: 'CREATE_REQUIRES_TEMPLATE',
-      message: t('create.requiresTemplate', { id: resource.id }),
-      category: 'validation',
-    });
-  }
-
-  const git = resource.template.definition?.source?.git;
-  const gitUrl = git?.repo || resource.template.gitRepo;
-  if (!gitUrl) {
-    throw new AppError({
-      code: 'CLOUD_TEMPLATE_GIT_SOURCE_REQUIRED',
-      message: `Cloud template ${resource.id} does not expose a Git source.`,
-      category: 'validation',
-    });
-  }
-
-  return {
-    gitUrl,
-    branch: git?.branch || resource.template.gitBranch || 'main',
-    subdir: git?.subfolder,
-  };
 }
