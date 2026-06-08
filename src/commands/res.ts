@@ -36,6 +36,19 @@ interface AddDocOptions extends JsonOption {
   tags?: string;
 }
 
+interface EditOptions extends JsonOption {
+  name?: string;
+  gitUrl?: string;
+  branch?: string;
+  subdir?: string;
+  uri?: string;
+  file?: string;
+  content?: string;
+  format?: 'markdown' | 'text';
+  description?: string;
+  tags?: string;
+}
+
 function parseTags(value: string | undefined): string[] {
   return value ? value.split(',').map((tag) => tag.trim()).filter(Boolean) : [];
 }
@@ -169,6 +182,42 @@ export function createResCommand(): Command {
   command.addCommand(add);
 
   command
+    .command('edit')
+    .argument('<id>')
+    .description(t('res.edit.description'))
+    .option('--name <name>', 'Resource name')
+    .option('--git-url <url>', 'Git repository URL')
+    .option('--branch <branch>', 'Git branch')
+    .option('--subdir <path>', 'Template subdirectory')
+    .option('--uri <uri>', 'Document URI')
+    .option('--file <path>', 'Read document content from file')
+    .option('--content <text>', 'Document content')
+    .option('--format <format>', 'Document format')
+    .option('--description <text>', 'Description')
+    .option('--tags <tags>', 'Comma-separated tags')
+    .option('--json', 'Output JSON')
+    .action(async (id: string, options: EditOptions) => {
+      ensureLocalWorkspace();
+      const current = await repository.require(id);
+      validateEditOptions(current.type, options);
+      const content = options.file
+        ? await readFile(options.file, 'utf8')
+        : options.content;
+      const resource = await repository.update(id, {
+        name: options.name,
+        gitUrl: options.gitUrl,
+        branch: options.branch,
+        subdir: options.subdir,
+        uri: options.uri,
+        content,
+        format: options.format,
+        description: options.description,
+        tags: options.tags === undefined ? undefined : parseTags(options.tags),
+      });
+      writeSuccess(resource, options);
+    });
+
+  command
     .command('remove')
     .alias('rm')
     .argument('<id>')
@@ -214,6 +263,54 @@ function ensureLocalWorkspace(): void {
     throw new AppError({
       code: 'LOCAL_WORKSPACE_REQUIRED',
       message: 'This command only writes local resources. Switch with ag space use local.',
+      category: 'validation',
+    });
+  }
+}
+
+function validateEditOptions(type: ResourceType, options: EditOptions): void {
+  const commonFields = [
+    options.name,
+    options.description,
+    options.tags,
+  ];
+  const templateFields = [
+    options.gitUrl,
+    options.branch,
+    options.subdir,
+  ];
+  const docFields = [
+    options.uri,
+    options.file,
+    options.content,
+    options.format,
+  ];
+  const hasAnyField = [...commonFields, ...templateFields, ...docFields].some((value) => value !== undefined);
+  if (!hasAnyField) {
+    throw new AppError({
+      code: 'RESOURCE_EDIT_FIELD_REQUIRED',
+      message: 'Pass at least one field to update.',
+      category: 'validation',
+    });
+  }
+  if (options.file && options.content) {
+    throw new AppError({
+      code: 'RESOURCE_EDIT_CONTENT_CONFLICT',
+      message: 'Use only one of --file or --content.',
+      category: 'validation',
+    });
+  }
+  if (type === 'template' && docFields.some((value) => value !== undefined)) {
+    throw new AppError({
+      code: 'RESOURCE_EDIT_TYPE_MISMATCH',
+      message: 'Document fields cannot be used when editing a template resource.',
+      category: 'validation',
+    });
+  }
+  if (type === 'doc' && templateFields.some((value) => value !== undefined)) {
+    throw new AppError({
+      code: 'RESOURCE_EDIT_TYPE_MISMATCH',
+      message: 'Template fields cannot be used when editing a document resource.',
       category: 'validation',
     });
   }

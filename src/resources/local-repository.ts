@@ -10,6 +10,7 @@ import type {
   LocalResourceStoreData,
   ResourceType,
   TemplateResource,
+  UpdateResourceInput,
 } from './types.js';
 
 const EMPTY_STORE: LocalResourceStoreData = {
@@ -131,6 +132,43 @@ export class LocalResourceRepository {
       wordCount: calculateWordCount(input.content),
     };
     store.items.unshift(resource);
+    await this.save(store);
+    return resource;
+  }
+
+  async update(id: string, input: UpdateResourceInput): Promise<LocalResource | null> {
+    const store = await this.load();
+    const index = store.items.findIndex((item) => item.id === id);
+    if (index === -1) {
+      return null;
+    }
+
+    const current = store.items[index];
+    const base = {
+      name: input.name ?? current.name,
+      description: input.description ?? current.description,
+      tags: input.tags ? normalizeTags(input.tags) : current.tags,
+      updatedAt: now(),
+    };
+
+    const resource: LocalResource = current.type === 'template'
+      ? {
+          ...current,
+          ...base,
+          gitUrl: input.gitUrl ?? current.gitUrl,
+          branch: input.branch ?? current.branch,
+          subdir: input.subdir ?? current.subdir,
+        }
+      : {
+          ...current,
+          ...base,
+          uri: input.uri ?? current.uri,
+          content: input.content ?? current.content,
+          format: input.format ?? current.format,
+          wordCount: input.content === undefined ? current.wordCount : calculateWordCount(input.content),
+        };
+
+    store.items[index] = resource;
     await this.save(store);
     return resource;
   }

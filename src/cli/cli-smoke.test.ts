@@ -46,6 +46,12 @@ test('CLI can add a local template and create a project from it', async () => {
     await git(repo, ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-m', 'init']);
 
     await runCli(['res', 'add', 'template', '--name', 'demo', '--git-url', repo, '--branch', 'master', '--json'], dataDir);
+    const edit = await runCli(['res', 'edit', '1', '--name', 'demo-edited', '--branch', 'master', '--tags', 'smoke,edited', '--json'], dataDir);
+    const edited = JSON.parse(edit.stdout);
+    assert.equal(edited.ok, true);
+    assert.equal(edited.data.name, 'demo-edited');
+    assert.deepEqual(edited.data.tags, ['smoke', 'edited']);
+
     const create = await runCli(['create', '1', '--target', target, '--var', 'projectName=cli-smoke', '--json'], dataDir);
     const parsed = JSON.parse(create.stdout);
     assert.equal(parsed.ok, true);

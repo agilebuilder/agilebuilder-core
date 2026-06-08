@@ -51,3 +51,15 @@ export interface AddDocInput {
   description?: string;
   tags?: string[];
 }
+
+export interface UpdateResourceInput {
+  name?: string;
+  description?: string;
+  tags?: string[];
+  gitUrl?: string;
+  branch?: string;
+  subdir?: string;
+  uri?: string;
+  content?: string;
+  format?: 'markdown' | 'text';
+}
