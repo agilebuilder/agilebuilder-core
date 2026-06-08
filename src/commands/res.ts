@@ -22,6 +22,8 @@ interface AddTemplateOptions extends JsonOption {
   gitUrl: string;
   branch?: string;
   subdir?: string;
+  parentId?: string;
+  spaceId?: string;
   description?: string;
   tags?: string;
 }
@@ -32,6 +34,8 @@ interface AddDocOptions extends JsonOption {
   uri?: string;
   content?: string;
   format?: 'markdown' | 'text';
+  parentId?: string;
+  spaceId?: string;
   description?: string;
   tags?: string;
 }
@@ -41,6 +45,8 @@ interface EditOptions extends JsonOption {
   gitUrl?: string;
   branch?: string;
   subdir?: string;
+  parentId?: string;
+  spaceId?: string;
   uri?: string;
   file?: string;
   content?: string;
@@ -128,20 +134,26 @@ export function createResCommand(): Command {
     .requiredOption('--git-url <url>', 'Git repository URL')
     .option('--branch <branch>', 'Git branch', 'main')
     .option('--subdir <path>', 'Template subdirectory')
+    .option('--parent-id <id>', 'Cloud parent folder node ID')
+    .option('--space-id <id>', 'Target workspace ID')
     .option('--description <text>', 'Description')
     .option('--tags <tags>', 'Comma-separated tags')
     .option('--json', 'Output JSON')
     .description(t('res.add.template.description'))
     .action(async (options: AddTemplateOptions) => {
-      ensureLocalWorkspace();
-      const resource = await repository.addTemplate({
+      const target = resolveTargetWorkspace(options.spaceId);
+      ensureCloudOnlyOption(target, options.parentId, '--parent-id');
+      const input = {
         name: options.name,
         gitUrl: options.gitUrl,
         branch: options.branch,
         subdir: options.subdir,
         description: options.description,
         tags: parseTags(options.tags),
-      });
+      };
+      const resource = target === LOCAL_SPACE_ID
+        ? await repository.addTemplate(input)
+        : await cloudRepository.addTemplate(target, { ...input, parentId: options.parentId });
       writeSuccess(resource, options);
     });
 
@@ -152,12 +164,15 @@ export function createResCommand(): Command {
     .option('--uri <uri>', 'Document URI')
     .option('--content <text>', 'Document content')
     .option('--format <format>', 'Document format')
+    .option('--parent-id <id>', 'Cloud parent folder node ID')
+    .option('--space-id <id>', 'Target workspace ID')
     .option('--description <text>', 'Description')
     .option('--tags <tags>', 'Comma-separated tags')
     .option('--json', 'Output JSON')
     .description(t('res.add.doc.description'))
     .action(async (options: AddDocOptions) => {
-      ensureLocalWorkspace();
+      const target = resolveTargetWorkspace(options.spaceId);
+      ensureCloudOnlyOption(target, options.parentId, '--parent-id');
       const content = options.file
         ? await readFile(options.file, 'utf8')
         : options.content;
@@ -168,14 +183,17 @@ export function createResCommand(): Command {
           category: 'validation',
         });
       }
-      const resource = await repository.addDoc({
+      const input = {
         name: options.name,
         uri: options.uri || `local-doc://${options.name}`,
         content,
         format: options.format || 'markdown',
         description: options.description,
         tags: parseTags(options.tags),
-      });
+      };
+      const resource = target === LOCAL_SPACE_ID
+        ? await repository.addDoc(input)
+        : await cloudRepository.addDoc(target, { ...input, parentId: options.parentId });
       writeSuccess(resource, options);
     });
 
@@ -189,6 +207,8 @@ export function createResCommand(): Command {
     .option('--git-url <url>', 'Git repository URL')
     .option('--branch <branch>', 'Git branch')
     .option('--subdir <path>', 'Template subdirectory')
+    .option('--parent-id <id>', 'Cloud parent folder node ID')
+    .option('--space-id <id>', 'Target workspace ID')
     .option('--uri <uri>', 'Document URI')
     .option('--file <path>', 'Read document content from file')
     .option('--content <text>', 'Document content')
@@ -197,23 +217,31 @@ export function createResCommand(): Command {
     .option('--tags <tags>', 'Comma-separated tags')
     .option('--json', 'Output JSON')
     .action(async (id: string, options: EditOptions) => {
-      ensureLocalWorkspace();
-      const current = await repository.require(id);
-      validateEditOptions(current.type, options);
+      const target = resolveTargetWorkspace(options.spaceId);
+      ensureCloudOnlyOption(target, options.parentId, '--parent-id');
+      const current = target === LOCAL_SPACE_ID
+        ? await repository.require(id)
+        : await cloudRepository.get(target, id);
+      const type = requireEditableResourceType(current.type);
+      validateEditOptions(type, options);
       const content = options.file
         ? await readFile(options.file, 'utf8')
         : options.content;
-      const resource = await repository.update(id, {
+      const input = {
         name: options.name,
         gitUrl: options.gitUrl,
         branch: options.branch,
         subdir: options.subdir,
+        parentId: options.parentId,
         uri: options.uri,
         content,
         format: options.format,
         description: options.description,
         tags: options.tags === undefined ? undefined : parseTags(options.tags),
-      });
+      };
+      const resource = target === LOCAL_SPACE_ID
+        ? await repository.update(id, input)
+        : await cloudRepository.update(target, id, input);
       writeSuccess(resource, options);
     });
 
@@ -223,9 +251,10 @@ export function createResCommand(): Command {
     .argument('<id>')
     .description(t('res.remove.description'))
     .option('--yes', 'Confirm removal')
+    .option('--space-id <id>', 'Target workspace ID')
     .option('--json', 'Output JSON')
-    .action(async (id: string, options: JsonOption & { yes?: boolean }) => {
-      ensureLocalWorkspace();
+    .action(async (id: string, options: JsonOption & { yes?: boolean; spaceId?: string }) => {
+      const target = resolveTargetWorkspace(options.spaceId);
       if (!options.yes) {
         throw new AppError({
           code: 'CONFIRMATION_REQUIRED',
@@ -233,13 +262,17 @@ export function createResCommand(): Command {
           category: 'validation',
         });
       }
-      const removed = await repository.remove(id);
-      if (!removed) {
-        throw new AppError({
-          code: 'RESOURCE_NOT_FOUND',
-          message: t('res.notFound', { id }),
-          category: 'resource',
-        });
+      if (target === LOCAL_SPACE_ID) {
+        const removed = await repository.remove(id);
+        if (!removed) {
+          throw new AppError({
+            code: 'RESOURCE_NOT_FOUND',
+            message: t('res.notFound', { id }),
+            category: 'resource',
+          });
+        }
+      } else {
+        await cloudRepository.remove(target, id);
       }
       writeSuccess({ message: t('res.remove.success'), id }, options);
     });
@@ -257,15 +290,30 @@ export function createResCommand(): Command {
   return command;
 }
 
-function ensureLocalWorkspace(): void {
+function resolveTargetWorkspace(spaceId: string | undefined): string {
   const current = WorkspaceStore.getCurrent();
-  if (current.id !== LOCAL_SPACE_ID) {
+  return spaceId || current.id;
+}
+
+function ensureCloudOnlyOption(targetWorkspaceId: string, value: string | undefined, optionName: string): void {
+  if (targetWorkspaceId === LOCAL_SPACE_ID && value !== undefined) {
     throw new AppError({
-      code: 'LOCAL_WORKSPACE_REQUIRED',
-      message: 'This command only writes local resources. Switch with ag space use local.',
+      code: 'LOCAL_WORKSPACE_UNSUPPORTED_OPTION',
+      message: `${optionName} is only supported for cloud resources.`,
       category: 'validation',
     });
   }
+}
+
+function requireEditableResourceType(value: string): ResourceType {
+  if (value === 'template' || value === 'doc') {
+    return value;
+  }
+  throw new AppError({
+    code: 'UNSUPPORTED_RESOURCE_TYPE',
+    message: t('res.unsupportedType', { type: value }),
+    category: 'validation',
+  });
 }
 
 function validateEditOptions(type: ResourceType, options: EditOptions): void {
@@ -273,6 +321,7 @@ function validateEditOptions(type: ResourceType, options: EditOptions): void {
     options.name,
     options.description,
     options.tags,
+    options.parentId,
   ];
   const templateFields = [
     options.gitUrl,

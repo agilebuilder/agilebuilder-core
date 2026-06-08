@@ -68,7 +68,7 @@ ag space list --json
 ag space use <space-id> --json
 ```
 
-Current cloud support is read-oriented: `res list`, `res search`, `res get`, and `create <cloud-resource-id>` can read cloud resources. `res add`, `res edit`, and `res remove` write local resources only.
+Resource commands use the current workspace by default. Use `--space-id <id>` on write commands when you need to target a different workspace.
 
 ## Resources
 
@@ -89,7 +89,7 @@ ag res get <resource-id> --json
 
 ### Add Template Resource
 
-Template resources are local-only and are added with flags:
+Template resources are added with flags. In the local workspace they are written to local JSON storage; in a cloud workspace they are written through the client API.
 
 ```powershell
 ag space use local
@@ -113,6 +113,17 @@ ag res add template `
   --json
 ```
 
+For a cloud workspace, pass `--parent-id` to place the resource under a folder node. If omitted, the resource is created at the root:
+
+```powershell
+ag res add template `
+  --space-id <space-id> `
+  --parent-id <folder-node-id> `
+  --name basic-copy `
+  --git-url https://github.com/agilebuilder/template-case-basic-copy.git `
+  --json
+```
+
 Template add options:
 
 ```text
@@ -120,6 +131,8 @@ Template add options:
 --git-url <url>        required
 --branch <branch>      optional, defaults to main
 --subdir <path>        optional
+--parent-id <id>       optional, cloud only
+--space-id <id>        optional, defaults to current workspace
 --description <text>   optional
 --tags <tags>          optional, comma-separated
 --json                 optional, output JSON
@@ -127,7 +140,7 @@ Template add options:
 
 ### Add Doc Resource
 
-Doc resources are local-only.
+Doc resources use the same workspace targeting rules as template resources.
 
 ```powershell
 ag res add doc `
@@ -153,6 +166,8 @@ Doc add options:
 --content <text>       optional, inline content
 --uri <uri>            optional, defaults to local-doc://<name>
 --format <format>      optional, markdown or text; defaults to markdown
+--parent-id <id>       optional, cloud only
+--space-id <id>        optional, defaults to current workspace
 --description <text>   optional
 --tags <tags>          optional, comma-separated
 --json                 optional, output JSON
@@ -162,7 +177,7 @@ Doc add options:
 
 ### Edit Local Resource
 
-`res edit` only works in the local workspace.
+`res edit` updates the current workspace by default. Use `--space-id <id>` to edit a resource in another workspace.
 
 ```powershell
 ag space use local
@@ -203,6 +218,8 @@ Doc resources can edit:
 --format
 ```
 
+Cloud resources can also be moved by passing `--parent-id <folder-node-id>`. Passing an empty `--parent-id ""` moves the resource to the cloud workspace root.
+
 Example:
 
 ```powershell
@@ -216,12 +233,13 @@ Validation rules:
 - Template-only fields cannot be used on doc resources.
 - Doc-only fields cannot be used on template resources.
 
-### Remove Local Resource
+### Remove Resource
 
-Remove is local-only and requires explicit confirmation:
+Remove uses the current workspace by default and requires explicit confirmation:
 
 ```powershell
 ag res remove <resource-id> --yes --json
+ag res remove <resource-id> --space-id <space-id> --yes --json
 ```
 
 ## Create Project
@@ -319,8 +337,8 @@ MCP uses the current selected workspace. Local doc resources and current cloud d
 
 ## Current Limits
 
-- `res add`, `res edit`, and `res remove` are local-only.
-- Cloud resources can currently be listed, searched, read, and used for project creation, but not created or edited by this CLI.
+- `--parent-id` is cloud-only because the local workspace has no directory tree.
+- Cloud resource writes require a backend that implements the client write APIs.
 - `res browse` exists but is not implemented; it prints an implementation message.
 - JSON input files for resource creation are not supported yet; resource add/edit uses flags.
 

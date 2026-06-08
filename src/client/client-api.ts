@@ -89,6 +89,43 @@ export interface CloudResourceDetail extends CloudResourceListItem {
   };
 }
 
+export interface CreateCloudTemplateInput {
+  name: string;
+  type: 'template';
+  parentId?: string;
+  description?: string;
+  tags?: string[];
+  gitUrl: string;
+  branch?: string;
+  subdir?: string;
+}
+
+export interface CreateCloudDocInput {
+  name: string;
+  type: 'doc';
+  parentId?: string;
+  description?: string;
+  tags?: string[];
+  uri?: string;
+  content: string;
+  format?: 'markdown' | 'text';
+}
+
+export type CreateCloudResourceInput = CreateCloudTemplateInput | CreateCloudDocInput;
+
+export interface UpdateCloudResourceInput {
+  name?: string;
+  parentId?: string;
+  description?: string;
+  tags?: string[];
+  gitUrl?: string;
+  branch?: string;
+  subdir?: string;
+  uri?: string;
+  content?: string;
+  format?: 'markdown' | 'text';
+}
+
 export interface DeviceInfo {
   id: string;
   deviceId: string;
@@ -147,6 +184,18 @@ export class ClientApi {
 
   static getResourceDetail(token: string, spaceId: string, resourceId: string): Promise<CloudResourceDetail> {
     return ClientHttp.get<CloudResourceDetail>(`/api/client/spaces/${spaceId}/resources/${resourceId}`, { token });
+  }
+
+  static createResource(token: string, spaceId: string, input: CreateCloudResourceInput): Promise<CloudResourceDetail> {
+    return ClientHttp.post<CloudResourceDetail>(`/api/client/spaces/${spaceId}/resources`, input, { token });
+  }
+
+  static updateResource(token: string, spaceId: string, resourceId: string, input: UpdateCloudResourceInput): Promise<CloudResourceDetail> {
+    return ClientHttp.post<CloudResourceDetail>(`/api/client/spaces/${spaceId}/resources/${resourceId}/update`, input, { token });
+  }
+
+  static deleteResource(token: string, spaceId: string, resourceId: string): Promise<unknown> {
+    return ClientHttp.post(`/api/client/spaces/${spaceId}/resources/${resourceId}/delete`, undefined, { token });
   }
 
   static recordResourceAccess(token: string, spaceId: string, resourceId: string): Promise<unknown> {
