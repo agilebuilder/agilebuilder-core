@@ -4,7 +4,7 @@ import { BUILTIN_LICENSE_PUBLIC_KEY } from './public-key.js';
 import type { LicenseResponse } from '../client/client-api.js';
 
 export function getLicensePublicKey(): string {
-  return process.env.AGILEBUILDER_LICENSE_PUBLIC_KEY || BUILTIN_LICENSE_PUBLIC_KEY;
+  return BUILTIN_LICENSE_PUBLIC_KEY;
 }
 
 export function verifyLicenseSignature(response: LicenseResponse, publicKey = getLicensePublicKey()): void {

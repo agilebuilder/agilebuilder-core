@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { createSign, generateKeyPairSync } from 'node:crypto';
 import test from 'node:test';
 import { AppError } from '../errors/app-error.js';
-import { verifyLicenseSignature } from './signature.js';
+import { BUILTIN_LICENSE_PUBLIC_KEY } from './public-key.js';
+import { getLicensePublicKey, verifyLicenseSignature } from './signature.js';
 import type { LicenseResponse } from '../client/client-api.js';
 
 function createSignedLicense(payload: string, privateKey: string): LicenseResponse {
@@ -51,4 +52,19 @@ test('verifyLicenseSignature accepts valid RS256 signatures and rejects invalid 
     },
   };
   assert.throws(() => verifyLicenseSignature(invalid, publicKey), AppError);
+});
+
+test('license public key ignores environment overrides', () => {
+  const oldPublicKey = process.env.AGILEBUILDER_LICENSE_PUBLIC_KEY;
+  process.env.AGILEBUILDER_LICENSE_PUBLIC_KEY = 'malicious-public-key';
+
+  try {
+    assert.equal(getLicensePublicKey(), BUILTIN_LICENSE_PUBLIC_KEY);
+  } finally {
+    if (oldPublicKey === undefined) {
+      delete process.env.AGILEBUILDER_LICENSE_PUBLIC_KEY;
+    } else {
+      process.env.AGILEBUILDER_LICENSE_PUBLIC_KEY = oldPublicKey;
+    }
+  }
 });

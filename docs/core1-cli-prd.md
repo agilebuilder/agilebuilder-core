@@ -360,22 +360,7 @@ ag config set <key> <value>
 | `china` | `https://auth.agilebuilder.cn` | `https://api-auth.agilebuilder.cn` | `https://api-app.agilebuilder.cn` |
 | `global` | `https://auth.agilebuilder.net` | `https://api-auth.agilebuilder.net` | `https://api-app.agilebuilder.net` |
 
-正式环境变量覆盖：
-
-1. `AG_BACKEND_CHINA_SSO_WEB_URL`
-2. `AG_BACKEND_CHINA_SSO_URL`
-3. `AG_BACKEND_CHINA_WORKSPACE_URL`
-4. `AG_BACKEND_GLOBAL_SSO_WEB_URL`
-5. `AG_BACKEND_GLOBAL_SSO_URL`
-6. `AG_BACKEND_GLOBAL_WORKSPACE_URL`
-
-本地联调通用覆盖：
-
-1. `AGILEBUILDER_SSO_WEB_URL`
-2. `AGILEBUILDER_SSO_API_URL`
-3. `AGILEBUILDER_WORKSPACE_URL`
-
-如果使用环境变量覆盖后端地址，必须完整配置同一组 3 个地址；只配置其中一部分时 CLI 必须直接报错，不允许静默回退到默认地址。
+后端地址固定为 AgileBuilder 官方服务，不支持通过环境变量覆盖，也不支持对接第三方后端服务。
 
 ### 6.7 Device
 

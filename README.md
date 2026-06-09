@@ -601,25 +601,8 @@ LC_MESSAGES
 LANG
 ```
 
-Backend endpoint overrides:
-
-```text
-AGILEBUILDER_SSO_WEB_URL
-AGILEBUILDER_SSO_API_URL
-AGILEBUILDER_WORKSPACE_URL
-AG_BACKEND_CHINA_SSO_WEB_URL
-AG_BACKEND_CHINA_SSO_URL
-AG_BACKEND_CHINA_WORKSPACE_URL
-AG_BACKEND_GLOBAL_SSO_WEB_URL
-AG_BACKEND_GLOBAL_SSO_URL
-AG_BACKEND_GLOBAL_WORKSPACE_URL
-```
-
-Endpoint override rules:
-
-- If any generic `AGILEBUILDER_*_URL` endpoint is set, all generic endpoint variables must be set.
-- If any profile-specific endpoint for the selected profile is set, all endpoints for that profile must be set.
-- Partial endpoint configuration fails fast.
+Backend endpoints are built in and always point to official AgileBuilder services.
+They cannot be changed through environment variables.
 
 ## Local Data Directory
 

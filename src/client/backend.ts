@@ -32,56 +32,7 @@ const DEFAULT_ENDPOINTS: Record<ResolvedBackendProfile, BackendEndpoints> = {
 };
 
 function getDefaultEndpoints(profile: ResolvedBackendProfile): BackendEndpoints {
-  const explicit = getExplicitEndpoints(profile);
-  if (explicit) {
-    return explicit;
-  }
-
   return DEFAULT_ENDPOINTS[profile];
-}
-
-function getExplicitEndpoints(profile: ResolvedBackendProfile): BackendEndpoints | null {
-  const genericNames = [
-    'AGILEBUILDER_SSO_WEB_URL',
-    'AGILEBUILDER_SSO_API_URL',
-    'AGILEBUILDER_WORKSPACE_URL',
-  ] as const;
-  const genericValues = genericNames.map((name) => process.env[name]?.trim());
-  if (genericValues.some(Boolean)) {
-    assertAllConfigured(genericNames, genericValues);
-    return {
-      websiteUrl: DEFAULT_ENDPOINTS[profile].websiteUrl,
-      ssoWebUrl: genericValues[0]!,
-      ssoApiUrl: genericValues[1]!,
-      workspaceUrl: genericValues[2]!,
-    };
-  }
-
-  const profileNames = profile === 'china'
-    ? ['AG_BACKEND_CHINA_SSO_WEB_URL', 'AG_BACKEND_CHINA_SSO_URL', 'AG_BACKEND_CHINA_WORKSPACE_URL'] as const
-    : ['AG_BACKEND_GLOBAL_SSO_WEB_URL', 'AG_BACKEND_GLOBAL_SSO_URL', 'AG_BACKEND_GLOBAL_WORKSPACE_URL'] as const;
-  const profileValues = profileNames.map((name) => process.env[name]?.trim());
-  if (profileValues.some(Boolean)) {
-    assertAllConfigured(profileNames, profileValues);
-    return {
-      websiteUrl: DEFAULT_ENDPOINTS[profile].websiteUrl,
-      ssoWebUrl: profileValues[0]!,
-      ssoApiUrl: profileValues[1]!,
-      workspaceUrl: profileValues[2]!,
-    };
-  }
-
-  return null;
-}
-
-function assertAllConfigured(
-  names: readonly string[],
-  values: Array<string | undefined>,
-): void {
-  const missing = names.filter((_, index) => !values[index]);
-  if (missing.length > 0) {
-    throw new Error(`Incomplete backend configuration. Missing: ${missing.join(', ')}`);
-  }
 }
 
 function detectProfile(): ResolvedBackendProfile {

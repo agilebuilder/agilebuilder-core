@@ -601,25 +601,7 @@ LC_MESSAGES
 LANG
 ```
 
-后端 endpoint 覆盖：
-
-```text
-AGILEBUILDER_SSO_WEB_URL
-AGILEBUILDER_SSO_API_URL
-AGILEBUILDER_WORKSPACE_URL
-AG_BACKEND_CHINA_SSO_WEB_URL
-AG_BACKEND_CHINA_SSO_URL
-AG_BACKEND_CHINA_WORKSPACE_URL
-AG_BACKEND_GLOBAL_SSO_WEB_URL
-AG_BACKEND_GLOBAL_SSO_URL
-AG_BACKEND_GLOBAL_WORKSPACE_URL
-```
-
-endpoint 覆盖规则：
-
-- 如果设置了任一通用 `AGILEBUILDER_*_URL` endpoint，则必须同时设置全部通用 endpoint。
-- 如果设置了当前 profile 下的任一专用 endpoint，则必须同时设置该 profile 的全部 endpoint。
-- 不完整的 endpoint 配置会直接失败，避免请求打到错误服务。
+后端 endpoint 内置为 AgileBuilder 官方服务，不支持通过环境变量覆盖。
 
 ## 本地数据目录
 
