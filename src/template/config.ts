@@ -1,4 +1,4 @@
-import { access, readFile } from 'node:fs/promises';
+﻿import { access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import YAML from 'yaml';
 import { AppError } from '../errors/app-error.js';
@@ -45,10 +45,8 @@ export interface HookConfig {
 }
 
 const CONFIG_FILE_NAMES = [
-  'agilebuilder.config.json',
-  'agilebuilder.config.yaml',
-  'agilebuilder.yaml',
-  'agilebuilder.yml',
+  '.agilebuilder.config.yaml',
+  '.agilebuilder.config.json',
 ];
 
 export interface LoadedTemplateConfig {

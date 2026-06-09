@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -26,7 +26,7 @@ test('CLI can add a local template and create a project from it', async () => {
   const target = join(dir, 'target');
   try {
     await git(dir, ['init', 'repo']);
-    await writeFile(join(repo, 'agilebuilder.yaml'), [
+    await writeFile(join(repo, '.agilebuilder.config.yaml'), [
       'version: 1',
       'variables:',
       '  enabled: true',
@@ -47,7 +47,7 @@ test('CLI can add a local template and create a project from it', async () => {
 
     await runCli(['res', 'add', 'template', '--name', 'demo', '--git-url', repo, '--branch', 'master', '--json'], dataDir);
     const listText = await runCli(['res', 'list'], dataDir);
-    assert.match(listText.stdout, /资源（1）|Resources \(1\)/);
+    assert.match(listText.stdout, /工作空间 local 中的资源（1）|Resources \(1\)/);
     assert.match(listText.stdout, /ag res get <id>/);
 
     const detailText = await runCli(['res', 'get', '1'], dataDir);

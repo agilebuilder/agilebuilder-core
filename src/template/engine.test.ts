@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -20,7 +20,7 @@ test('TemplateEngine generates from a git repository with AgileBuilder config', 
   const target = join(dir, 'target');
   try {
     await git(dir, ['init', 'repo']);
-    await writeFile(join(repo, 'agilebuilder.yaml'), [
+    await writeFile(join(repo, '.agilebuilder.config.yaml'), [
       'version: 1',
       'variables:',
       '  enabled: true',
@@ -47,7 +47,7 @@ test('TemplateEngine generates from a git repository with AgileBuilder config', 
     });
 
     assert.equal(result.success, true);
-    assert.equal(result.configFile, 'agilebuilder.yaml');
+    assert.equal(result.configFile, '.agilebuilder.config.yaml');
     assert.match(await readFile(join(target, 'demo-app.txt'), 'utf8'), /Hello demo-app/);
     assert.deepEqual(await readFile(join(target, 'raw.bin')), Buffer.from([0, 1, 2, 3]));
   } finally {
@@ -62,7 +62,7 @@ test('TemplateEngine skips hooks by default and runs them when allowed', async (
   const allowedTarget = join(dir, 'target-allowed');
   try {
     await git(dir, ['init', 'repo']);
-    await writeFile(join(repo, 'agilebuilder.yaml'), [
+    await writeFile(join(repo, '.agilebuilder.config.yaml'), [
       'version: 1',
       'hooks:',
       '  after_write:',
@@ -112,6 +112,54 @@ test('TemplateEngine warns and continues when no AgileBuilder config exists', as
     assert.equal(result.configFile, undefined);
     assert.deepEqual(result.warnings, ['No AgileBuilder template config file found; continuing with default config.']);
     assert.equal((await readFile(join(target, 'README.md'), 'utf8')).replace(/\r\n/g, '\n'), 'hello\n');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('TemplateEngine prefers YAML config over JSON config', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'ag-core1-config-priority-'));
+  const repo = join(dir, 'repo');
+  const target = join(dir, 'target');
+  try {
+    await git(dir, ['init', 'repo']);
+    await writeFile(join(repo, '.agilebuilder.config.json'), JSON.stringify({
+      version: 1,
+      variables: {
+        enabled: true,
+        filePatterns: { mode: 'include', patterns: ['**/*.txt'] },
+        inquirerQuestions: [
+          { name: 'projectName', type: 'input', message: 'Project name', default: 'json-name' },
+        ],
+      },
+      hooks: {},
+    }), 'utf8');
+    await writeFile(join(repo, '.agilebuilder.config.yaml'), [
+      'version: 1',
+      'variables:',
+      '  enabled: true',
+      '  filePatterns:',
+      '    mode: include',
+      '    patterns:',
+      '      - "**/*.txt"',
+      '  inquirerQuestions:',
+      '    - name: projectName',
+      '      type: input',
+      '      message: Project name',
+      '      default: yaml-name',
+      '',
+    ].join('\n'), 'utf8');
+    await writeFile(join(repo, '{{ projectName }}.txt'), 'Hello <%= projectName %>\n', 'utf8');
+    await git(repo, ['add', '.']);
+    await git(repo, ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-m', 'init']);
+
+    const result = await new TemplateEngine().generateFromGit({
+      gitUrl: repo,
+      targetDir: target,
+    });
+
+    assert.equal(result.configFile, '.agilebuilder.config.yaml');
+    assert.equal((await readFile(join(target, 'yaml-name.txt'), 'utf8')).replace(/\r\n/g, '\n'), 'Hello yaml-name\n');
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

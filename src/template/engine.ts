@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+﻿import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -177,7 +177,7 @@ async function copyTemplateFiles(input: {
       filesSkipped.push(relPath);
       continue;
     }
-    if (relPath.startsWith('agilebuilder.config.') || relPath === 'agilebuilder.yaml' || relPath === 'agilebuilder.yml') {
+    if (relPath === '.agilebuilder.config.yaml' || relPath === '.agilebuilder.config.json') {
       filesSkipped.push(relPath);
       continue;
     }
