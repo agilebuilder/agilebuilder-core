@@ -33,6 +33,7 @@ test('backend endpoints support china/global specific environment variables', as
     let backend = await import(`./backend.js?case=china-${Date.now()}`);
     ConfigStore.set('backend.profile', 'china');
     assert.deepEqual(backend.getBackendEndpoints(), {
+      websiteUrl: 'https://www.agilebuilder.cn',
       ssoWebUrl: 'https://auth.agilebuilder.cn',
       ssoApiUrl: 'https://api-auth.agilebuilder.cn',
       workspaceUrl: 'https://api-app.agilebuilder.cn',
@@ -41,6 +42,7 @@ test('backend endpoints support china/global specific environment variables', as
     backend = await import(`./backend.js?case=global-${Date.now()}`);
     ConfigStore.set('backend.profile', 'global');
     assert.deepEqual(backend.getBackendEndpoints(), {
+      websiteUrl: 'https://www.agilebuilder.net',
       ssoWebUrl: 'https://auth.agilebuilder.net',
       ssoApiUrl: 'https://api-auth.agilebuilder.net',
       workspaceUrl: 'https://api-app.agilebuilder.net',

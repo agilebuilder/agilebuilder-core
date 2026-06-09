@@ -3,6 +3,7 @@ import { ConfigStore } from '../config/store.js';
 export type ResolvedBackendProfile = 'china' | 'global';
 
 export interface BackendEndpoints {
+  websiteUrl: string;
   ssoWebUrl: string;
   ssoApiUrl: string;
   workspaceUrl: string;
@@ -15,24 +16,28 @@ const CHINA_TIMEZONES = new Set([
   'asia/urumqi',
 ]);
 
+const DEFAULT_ENDPOINTS: Record<ResolvedBackendProfile, BackendEndpoints> = {
+  china: {
+    websiteUrl: 'https://www.agilebuilder.cn',
+    ssoWebUrl: 'https://api-auth.agilebuilder.cn',
+    ssoApiUrl: 'https://api-auth.agilebuilder.cn',
+    workspaceUrl: 'https://api-app.agilebuilder.cn',
+  },
+  global: {
+    websiteUrl: 'https://www.agilebuilder.net',
+    ssoWebUrl: 'https://api-auth.agilebuilder.net',
+    ssoApiUrl: 'https://api-auth.agilebuilder.net',
+    workspaceUrl: 'https://api-app.agilebuilder.net',
+  },
+};
+
 function getDefaultEndpoints(profile: ResolvedBackendProfile): BackendEndpoints {
   const explicit = getExplicitEndpoints(profile);
   if (explicit) {
     return explicit;
   }
 
-  if (profile === 'china') {
-    return {
-      ssoWebUrl: 'https://api-auth.agilebuilder.cn',
-      ssoApiUrl: 'https://api-auth.agilebuilder.cn',
-      workspaceUrl: 'https://api-app.agilebuilder.cn',
-    };
-  }
-  return {
-    ssoWebUrl: 'https://api-auth.agilebuilder.net',
-    ssoApiUrl: 'https://api-auth.agilebuilder.net',
-    workspaceUrl: 'https://api-app.agilebuilder.net',
-  };
+  return DEFAULT_ENDPOINTS[profile];
 }
 
 function getExplicitEndpoints(profile: ResolvedBackendProfile): BackendEndpoints | null {
@@ -45,6 +50,7 @@ function getExplicitEndpoints(profile: ResolvedBackendProfile): BackendEndpoints
   if (genericValues.some(Boolean)) {
     assertAllConfigured(genericNames, genericValues);
     return {
+      websiteUrl: DEFAULT_ENDPOINTS[profile].websiteUrl,
       ssoWebUrl: genericValues[0]!,
       ssoApiUrl: genericValues[1]!,
       workspaceUrl: genericValues[2]!,
@@ -58,6 +64,7 @@ function getExplicitEndpoints(profile: ResolvedBackendProfile): BackendEndpoints
   if (profileValues.some(Boolean)) {
     assertAllConfigured(profileNames, profileValues);
     return {
+      websiteUrl: DEFAULT_ENDPOINTS[profile].websiteUrl,
       ssoWebUrl: profileValues[0]!,
       ssoApiUrl: profileValues[1]!,
       workspaceUrl: profileValues[2]!,

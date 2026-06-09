@@ -10,16 +10,18 @@ import { createResCommand } from '../commands/res.js';
 import { createSpaceCommand } from '../commands/space.js';
 import { getEffectiveLocale, t } from '../i18n/index.js';
 import { ConfigStore } from '../config/store.js';
+import { getBackendEndpoints } from '../client/backend.js';
 import { printError } from '../output/format.js';
 
 async function main(): Promise<void> {
   const config = ConfigStore.load();
   getEffectiveLocale(config.language);
+  const { websiteUrl } = getBackendEndpoints();
 
   const program = new Command();
   program
     .name(APP_NAME)
-    .description(t('cli.description'))
+    .description(t('cli.description', { websiteUrl }))
     .version(APP_VERSION, '-V, --version', t('common.outputVersion'))
     .helpOption('-h, --help', t('common.displayHelp'));
   program.addHelpCommand('help [command]', t('common.helpCommandDescription'));

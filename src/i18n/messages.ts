@@ -13,7 +13,8 @@ export const messages: Record<LocaleCode, Messages> = {
     'device.list.description': 'List registered devices',
     'device.revoke.description': 'Revoke one device',
     'device.revokeAll.description': 'Revoke all other devices',
-    'cli.description': 'Lightweight AgileBuilder CLI for resources, templates, and MCP.',
+    'cli.description':
+      'AgileBuilder CLI is a lightweight scaffold for AI development, helping you organize templates, resources, and MCP capabilities.\n\nAgileBuilder Cloud supports resource sync and team collaboration. Run ag auth login to get started, or visit {websiteUrl} for details.',
     'common.cancel': 'Cancel',
     'common.displayHelp': 'Display help',
     'common.error': 'Error',
@@ -64,7 +65,8 @@ export const messages: Record<LocaleCode, Messages> = {
     'device.list.description': '列出已注册设备',
     'device.revoke.description': '撤销一个设备',
     'device.revokeAll.description': '撤销所有其他设备',
-    'cli.description': '轻量 AgileBuilder CLI，用于资源、模板和 MCP。',
+    'cli.description':
+      'AgileBuilder CLI 是面向 AI 开发的轻量脚手架，帮助你组织模板、资源和 MCP 能力。\n\nAgileBuilder Cloud 支持资源同步与团队协作。运行 ag auth login 登录使用，或访问 {websiteUrl} 查看详情。',
     'common.cancel': '取消',
     'common.displayHelp': '显示帮助',
     'common.error': '错误',

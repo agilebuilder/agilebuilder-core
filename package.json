@@ -1,7 +1,7 @@
 {
-  "name": "@agilebuilder/core1",
+  "name": "agilebuilder",
   "version": "0.1.0",
-  "description": "Lightweight AgileBuilder CLI for local/cloud resources, template generation, and MCP.",
+  "description": "AI-native developer tooling for template-based project creation and document-guided development via CLI and MCP.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -17,9 +17,19 @@
     "agilebuilder-mcp": "./bin/mcp.js"
   },
   "files": [
-    "bin",
     "dist",
+    "!dist/**/*.test.js",
+    "!dist/**/*.test.d.ts",
+    "!dist/**/*.test.js.map",
+    "!dist/**/*.test.d.ts.map",
+    "bin",
+    "docs",
     "README.md",
+    "README.zh-CN.md",
+    "CHANGELOG.md",
+    "CODE_OF_CONDUCT.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
     "LICENSE"
   ],
   "scripts": {
@@ -31,14 +41,30 @@
     "typecheck": "tsc --noEmit"
   },
   "keywords": [
+    "scaffold",
+    "scaffolding",
     "agilebuilder",
-    "cli",
     "template",
+    "cli",
     "mcp",
-    "scaffold"
+    "model-context-protocol",
+    "ai",
+    "project-generator",
+    "boilerplate",
+    "starter",
+    "typescript",
+    "git-template"
   ],
-  "author": "AgileBuilder",
+  "author": "wangjindong",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agilebuilder/agilebuilder-core.git"
+  },
+  "bugs": {
+    "url": "https://github.com/agilebuilder/agilebuilder-core/issues"
+  },
+  "homepage": "https://www.agilebuilder.net",
   "dependencies": {
     "@inquirer/prompts": "^8.3.0",
     "@modelcontextprotocol/sdk": "^1.27.1",
