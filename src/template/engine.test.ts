@@ -1,6 +1,6 @@
 ﻿import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -160,6 +160,49 @@ test('TemplateEngine prefers YAML config over JSON config', async () => {
 
     assert.equal(result.configFile, '.agilebuilder.config.yaml');
     assert.equal((await readFile(join(target, 'yaml-name.txt'), 'utf8')).replace(/\r\n/g, '\n'), 'Hello yaml-name\n');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('TemplateEngine uses source.subdir as the template file root', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'ag-core1-source-subdir-'));
+  const repo = join(dir, 'repo');
+  const target = join(dir, 'target');
+  try {
+    await git(dir, ['init', 'repo']);
+    await writeFile(join(repo, '.agilebuilder.config.yaml'), [
+      'version: 1',
+      'source:',
+      '  subdir: template',
+      'variables:',
+      '  enabled: true',
+      '  filePatterns:',
+      '    mode: include',
+      '    patterns:',
+      '      - "**/*.md"',
+      '  inquirerQuestions:',
+      '    - name: projectName',
+      '      type: input',
+      '      message: Project name',
+      '      required: true',
+      '',
+    ].join('\n'), 'utf8');
+    await writeFile(join(repo, 'ROOT_ONLY.md'), 'should not copy\n', 'utf8');
+    await mkdir(join(repo, 'template'), { recursive: true });
+    await writeFile(join(repo, 'template', '{{ projectName }}.md'), '# <%= projectName %>\n', 'utf8');
+    await git(repo, ['add', '.']);
+    await git(repo, ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-m', 'init']);
+
+    const result = await new TemplateEngine().generateFromGit({
+      gitUrl: repo,
+      targetDir: target,
+      variables: { projectName: 'demo-app' },
+    });
+
+    assert.equal(result.configFile, '.agilebuilder.config.yaml');
+    assert.equal(existsSync(join(target, 'ROOT_ONLY.md')), false);
+    assert.equal((await readFile(join(target, 'demo-app.md'), 'utf8')).replace(/\r\n/g, '\n'), '# demo-app\n');
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

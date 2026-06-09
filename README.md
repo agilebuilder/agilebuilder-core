@@ -1,58 +1,21 @@
-# AgileBuilder Core
+# AgileBuilder CLI
 
-[简体中文](./README.zh-CN.md)
+AgileBuilder CLI is a Git-template-based project scaffolding and development resource management tool. After global npm installation, it provides the `agilebuilder` and `ag` command-line entrypoints for creating projects from direct Git template URLs or registered template resources. It supports template variables, file path and content rendering, file matching rules, and explicitly authorized post-generation hooks. AgileBuilder also provides local workspaces, AgileBuilder Cloud workspaces, template resources, document resources, and JSON output for automation. For AI-native development workflows, the `agilebuilder-mcp` server exposes resource search, document context, and project scaffolding capabilities to MCP-compatible AI IDEs and agents, helping individual developers and small teams standardize project initialization and reuse development context.
 
-> AI-native developer tooling for template-based project creation and document-guided development through CLI and MCP.
+Package name: `agilebuilder`  
+Commands: `agilebuilder`, `ag`, `agilebuilder-mcp`  
+Runtime: Node.js `>=20.0.0`
 
-AgileBuilder Core is the installable runtime behind the AgileBuilder command line and MCP server. It gives teams a local-first way to manage reusable templates, keep project documents as structured resources, and let AI IDEs discover that context before creating or changing code.
+## Capabilities
 
-This package is published to npm as `agilebuilder`.
-
-## Table Of Contents
-
-- [What It Provides](#what-it-provides)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [CLI Commands](#cli-commands)
-- [Workspaces](#workspaces)
-- [Resource Model](#resource-model)
-- [Creating Projects](#creating-projects)
-- [Template Configuration](#template-configuration)
-- [Authentication And Cloud Access](#authentication-and-cloud-access)
-- [MCP Integration](#mcp-integration)
-- [Configuration](#configuration)
-- [Environment Variables](#environment-variables)
-- [Local Data Directory](#local-data-directory)
-- [Programmatic API](#programmatic-api)
-- [Development](#development)
-- [Release Checks](#release-checks)
-- [Current Limits](#current-limits)
-- [Security And Privacy](#security-and-privacy)
-- [Open Source Scope](#open-source-scope)
-- [Feedback And License](#feedback-and-license)
-
-## What It Provides
-
-AgileBuilder Core is a lightweight runtime for project bootstrapping, resource management, and AI-assisted development.
-
-It currently provides:
-
-- CLI entrypoints: `agilebuilder`, `ag`, and `agilebuilder-mcp`
-- local workspace support that works without cloud login
-- cloud workspace selection after authentication
-- local and cloud resource operations for templates and documents
-- Git template generation with variables, optional hooks, and subdirectory support
-- API key and OAuth login flows
-- device management for authenticated accounts
-- MCP tools and readable MCP resources for AI IDEs
-- JSON output for automation-friendly command usage
-
-The intended workflow is:
-
-1. Register templates and documents as resources.
-2. Select a local or cloud workspace.
-3. Create projects from managed template resources or direct Git URLs.
-4. Expose templates and documents to AI IDEs through MCP so generated code can follow team context.
+- Create projects from a direct Git URL or a saved template resource.
+- Manage template and document resources in a local workspace.
+- Work with AgileBuilder Cloud spaces after login.
+- Store document resources and expose them through MCP resources.
+- Expose resource lookup and project creation through an MCP stdio server.
+- Render template variables in file contents and paths.
+- Run explicitly allowed template hooks after files are written.
+- Produce machine-readable JSON output for automation.
 
 ## Installation
 
@@ -62,281 +25,242 @@ Install globally:
 npm install -g agilebuilder
 ```
 
-The package installs three binaries:
-
-```text
-agilebuilder
-ag
-agilebuilder-mcp
-```
-
-Requirements:
-
-- Node.js `>=20.0.0`
-- Git available on `PATH` for template cloning
-
-Verify installation:
+Or run from a local checkout:
 
 ```bash
-ag --version
-ag --help
+npm install
+npm run build
+node ./bin/agilebuilder.js --help
 ```
+
+The short command `ag` points to the same CLI as `agilebuilder`.
 
 ## Quick Start
 
-Use the built-in local workspace:
+Create a project directly from a Git template:
 
 ```bash
-ag space list --json
-ag space current --json
-ag space use local --json
+ag create --git-url https://github.com/example/template.git --target ./my-app
 ```
 
-Add a local template resource:
+Register a local template resource and create from it:
 
 ```bash
+ag space use local
 ag res add template \
-  --name basic-copy \
-  --git-url https://github.com/agilebuilder/template-case-basic-copy.git \
+  --name web-app \
+  --git-url https://github.com/example/template.git \
   --branch main \
-  --description "Basic copy case" \
-  --tags "case,basic" \
-  --json
+  --tags "web,starter"
+
+ag res list
+ag create 1 --target ./my-app
 ```
 
-List resources:
+Pass template variables:
+
+```bash
+ag create 1 \
+  --target ./my-app \
+  --var appName=my-app \
+  --var useAuth=true
+```
+
+Use JSON output in scripts:
 
 ```bash
 ag res list --json
-ag res search basic --type template --json
-```
-
-Create a project from a direct Git URL:
-
-```bash
-ag create \
-  --git-url https://github.com/agilebuilder/template-case-basic-copy.git \
-  --target ./output/basic-copy \
-  --json
-```
-
-Create a project from a managed template resource:
-
-```bash
-ag create <template-resource-id> --target ./output/app --json
-```
-
-Start MCP for an AI IDE:
-
-```bash
-agilebuilder-mcp
-```
-
-## CLI Commands
-
-The root command exposes:
-
-```text
-config
-login
-logout
-auth
-space
-res, resource
-create
-device
-```
-
-Common command forms:
-
-```bash
-ag config list --json
-ag login --api-key <API_KEY>
-ag auth status --json
-ag logout --json
-
-ag space list --json
-ag space list --refresh --json
-ag space current --json
-ag space use local --json
-ag space use <space-id> --json
-
-ag res list --json
-ag res search <keyword> --json
-ag res get <resource-id> --json
-ag res add template --name <name> --git-url <url> --json
-ag res add doc --name <name> --file <path> --json
-ag res edit <resource-id> --name <new-name> --json
-ag res remove <resource-id> --yes --json
-
-ag create --git-url <url> --target <dir> --json
-ag create <template-resource-id> --target <dir> --json
-
-ag device list --json
-ag device revoke <device-id> --reason <text> --json
-ag device revoke-all --json
-```
-
-There is also a hidden diagnostic command for MCP visibility:
-
-```bash
-ag mcp-debug-resources --json
+ag create 1 --target ./my-app --json
 ```
 
 ## Workspaces
 
-AgileBuilder Core always has a built-in local workspace:
+AgileBuilder has a built-in local workspace and optional Cloud workspaces.
+
+- `local`: stores resources on the current machine and does not require login.
+- Cloud spaces: loaded from AgileBuilder Cloud and require authentication.
+
+The current workspace is used by resource commands and by `create <resource-id>`.
 
 ```bash
-ag space use local --json
+ag space list
+ag space list --refresh
+ag space current
+ag space use local
+ag space use <space-id>
 ```
 
-Local workspace behavior:
-
-- available without login
-- stores resources in local JSON files
-- supports template and document resource writes
-- does not have a folder tree, so `--parent-id` is not supported
-
-Cloud workspace behavior:
-
-- requires login and a reachable backend
-- uses the selected cloud workspace as command context
-- supports resource list, search, get, add, edit, remove, and template-based project creation when the backend implements the required client APIs
-- supports `--parent-id` for placing cloud resources under folder nodes
-
-Resource write commands use the current workspace by default. Pass `--space-id <id>` to target a different workspace explicitly.
-
-## Resource Model
-
-AgileBuilder Core treats templates and documents as first-class resources.
-
-Supported resource types:
-
-- `template`
-- `doc`
-
-List and search:
+Resource write commands use the current workspace by default. Pass `--space-id <id>` to target another workspace without switching:
 
 ```bash
-ag res list --json
-ag res list --type template --json
-ag res search react --json
-ag res search guide --type doc --json
+ag res add template --space-id <space-id> --name api --git-url https://github.com/example/api-template.git
+ag res remove <resource-id> --space-id <space-id> --yes
 ```
 
-Read one resource:
+`--parent-id` is only valid for Cloud resources because local resources do not have a folder tree.
+
+## Authentication
+
+Cloud resources, Cloud spaces, license refresh, and device management require login.
+
+OAuth login:
 
 ```bash
-ag res get <resource-id> --json
+ag login
 ```
 
-### Template Resources
+The CLI opens a browser and listens for an OAuth callback on `127.0.0.1`, starting at port `51280` and probing up to ten ports.
 
-Add a template resource:
+API key login:
+
+```bash
+ag login --api-key <key>
+```
+
+Check or clear authentication:
+
+```bash
+ag auth status
+ag auth require-token
+ag logout
+```
+
+OAuth tokens are refreshed automatically when possible. API keys are stored as the active credential until logout.
+
+## Backend Selection
+
+The CLI chooses backend endpoints from `backend.profile`.
+
+| Value | Behavior |
+| --- | --- |
+| `auto` | Detects China profile when locale/time zone indicates mainland China; otherwise uses global. |
+| `china` | Uses `agilebuilder.cn` endpoints. |
+| `global` | Uses `agilebuilder.net` endpoints. |
+
+Commands:
+
+```bash
+ag config list
+ag config get backend.profile
+ag config set backend.profile global
+```
+
+Supported config keys:
+
+| Key | Values |
+| --- | --- |
+| `backend.profile` | `auto`, `china`, `global` |
+| `language` | `auto`, `zh-CN`, `en-US` |
+| `template.allowHooksDefault` | `true`, `false` |
+
+Note: `template.allowHooksDefault` is stored in config, but the current `create` command only executes hooks when `--allow-hooks` is passed.
+
+Language detection also reads `AGILEBUILDER_LANG`, `LC_ALL`, `LC_MESSAGES`, and `LANG` when `language` is `auto`.
+
+## Data Storage
+
+By default, CLI data is stored under:
+
+```text
+~/.agilebuilder/core
+```
+
+Important files:
+
+| File | Purpose |
+| --- | --- |
+| `config.json` | CLI configuration. |
+| `current-space.json` | Selected workspace ID. |
+| `resources/local.json` | Local template and document resources. |
+| `auth.enc` | Encrypted authentication data. |
+| `logs/` | Reserved log directory. |
+
+Use `AGILEBUILDER_CORE1_DATA_DIR` to override the data directory:
+
+```bash
+AGILEBUILDER_CORE1_DATA_DIR=/tmp/agilebuilder-core ag res list
+```
+
+## Resource Management
+
+AgileBuilder supports two resource types:
+
+| Type | Purpose |
+| --- | --- |
+| `template` | A Git repository plus optional branch and subdirectory, used by `create`. |
+| `doc` | Markdown or text content, usable as CLI-managed reference material and MCP resources. |
+
+List, search, and inspect resources:
+
+```bash
+ag res list
+ag res list --type template
+ag res search auth
+ag res search auth --type doc
+ag res get <id>
+```
+
+`res` also has the alias `resource`, and `list` has the alias `ls`.
+
+Add a template:
 
 ```bash
 ag res add template \
-  --name basic-copy \
-  --git-url https://github.com/agilebuilder/template-case-basic-copy.git \
+  --name service-template \
+  --git-url https://github.com/example/service-template.git \
   --branch main \
-  --subdir templates/app \
-  --description "Basic application template" \
-  --tags "case,basic" \
-  --json
+  --subdir templates/node \
+  --description "Node.js service starter" \
+  --tags "node,service"
 ```
 
-Options:
+Template options:
 
-```text
---name <name>          required
---git-url <url>        required
---branch <branch>      optional, defaults to main
---subdir <path>        optional
---parent-id <id>       optional, cloud only
---space-id <id>        optional, defaults to current workspace
---description <text>   optional
---tags <tags>          optional, comma-separated
---json                 optional
-```
+| Option | Required | Notes |
+| --- | --- | --- |
+| `--name <name>` | Yes | Resource display name. |
+| `--git-url <url>` | Yes | Git repository URL. |
+| `--branch <branch>` | No | Defaults to `main` when adding a resource. |
+| `--subdir <path>` | No | Template directory inside the repository. |
+| `--parent-id <id>` | No | Cloud only. |
+| `--space-id <id>` | No | Defaults to current workspace. |
+| `--description <text>` | No | Optional description. |
+| `--tags <tags>` | No | Comma-separated tags. |
+| `--json` | No | Emit JSON. |
 
-Editable template fields:
-
-```text
---name
---description
---tags
---git-url
---branch
---subdir
-```
-
-### Document Resources
-
-Add a document from a file:
+Add a document:
 
 ```bash
 ag res add doc \
-  --name local-guide \
-  --file ./README.md \
+  --name architecture-notes \
+  --file ./docs/architecture.md \
   --format markdown \
-  --description "Local guide" \
-  --tags "docs,local" \
-  --json
+  --tags "docs,architecture"
 ```
 
-Add a document from inline content:
+Document content can come from `--file` or `--content`. One of them is required.
 
-```bash
-ag res add doc \
-  --name note \
-  --content "Hello AgileBuilder" \
-  --format text \
-  --json
-```
+Document options:
 
-Options:
-
-```text
---name <name>          required
---file <path>          optional
---content <text>       optional
---uri <uri>            optional, defaults to local-doc://<name>
---format <format>      optional, markdown or text; defaults to markdown
---parent-id <id>       optional, cloud only
---space-id <id>        optional, defaults to current workspace
---description <text>   optional
---tags <tags>          optional, comma-separated
---json                 optional
-```
-
-`--file` or `--content` is required when adding a document.
-
-Editable document fields:
-
-```text
---name
---description
---tags
---uri
---file
---content
---format
-```
-
-### Edit And Remove
+| Option | Required | Notes |
+| --- | --- | --- |
+| `--name <name>` | Yes | Resource display name. |
+| `--file <path>` | No | Reads content from a file. |
+| `--content <text>` | No | Inline content. |
+| `--uri <uri>` | No | Defaults to `local-doc://<name>` for local docs. |
+| `--format <format>` | No | `markdown` or `text`; defaults to `markdown`. |
+| `--parent-id <id>` | No | Cloud only. |
+| `--space-id <id>` | No | Defaults to current workspace. |
+| `--description <text>` | No | Optional description. |
+| `--tags <tags>` | No | Comma-separated tags. |
+| `--json` | No | Emit JSON. |
 
 Edit a resource:
 
 ```bash
-ag res edit <resource-id> --name new-name --description "Updated" --json
-```
-
-Remove a resource:
-
-```bash
-ag res remove <resource-id> --yes --json
-ag res remove <resource-id> --space-id <space-id> --yes --json
+ag res edit <id> --name new-name --description "Updated"
+ag res edit <id> --tags "backend,starter"
+ag res edit <doc-id> --file ./README.md --format markdown
 ```
 
 Validation rules:
@@ -345,147 +269,158 @@ Validation rules:
 - `--file` and `--content` cannot be used together.
 - Template-only fields cannot be used on document resources.
 - Document-only fields cannot be used on template resources.
-- `--parent-id` is cloud-only.
+- `--parent-id` is Cloud only.
 
-## Creating Projects
-
-Create directly from a Git URL:
+Remove a resource:
 
 ```bash
-ag create \
-  --git-url https://github.com/agilebuilder/template-case-basic-copy.git \
-  --branch main \
-  --target ./output/basic-copy \
-  --json
+ag res remove <id> --yes
+ag res rm <id> --yes --json
 ```
 
-Create from a template resource in the current workspace:
+`--yes` is required. The `res browse` command exists as a placeholder and is not implemented.
+
+## Project Creation
+
+Create from a direct Git URL:
 
 ```bash
-ag create <template-resource-id> --target ./output/app --json
+ag create --git-url https://github.com/example/template.git --target ./app
 ```
 
-Use a template subdirectory:
+Create from the current workspace's template resource:
 
 ```bash
-ag create \
-  --git-url https://github.com/agilebuilder/template-case-multi-template-repo.git \
-  --subdir templates/api \
-  --target ./output/api \
-  --json
+ag create <resource-id> --target ./app
 ```
 
-Pass template variables:
+Options:
 
-```bash
-ag create \
-  --git-url https://github.com/agilebuilder/template-case-vars-paths.git \
-  --target ./output/demo-api \
-  --var projectName=demo-api \
-  --var packageName=@demo/api \
-  --json
-```
+| Option | Required | Notes |
+| --- | --- | --- |
+| `[resource-id]` | Required unless `--git-url` is used | Must refer to a template resource. |
+| `--git-url <url>` | Required unless resource ID is used | Creates directly from a Git repository. |
+| `--branch <branch>` | No | Overrides the resource branch or clones a specific direct-Git branch. |
+| `--subdir <path>` | No | Overrides the resource subdirectory or uses a direct-Git subdirectory. |
+| `--target <dir>` | Yes | Output directory. |
+| `--vars <path>` | No | JSON object file with variables. |
+| `--var <key=value...>` | No | One or more scalar variable assignments. |
+| `--overwrite` | No | Allows writing into a non-empty target directory. |
+| `--keep-git` | No | Accepted by the command, but the current file walker still skips `.git` directories. |
+| `--allow-hooks` | No | Allows supported template hooks to run. |
+| `--json` | No | Emit JSON. |
 
-Load variables from a JSON file:
+Target safety:
 
-```bash
-ag create \
-  --git-url https://github.com/agilebuilder/template-case-vars-paths.git \
-  --target ./output/demo-api \
-  --vars ./sample-vars.json \
-  --json
-```
+- The CLI refuses unsafe root/system targets.
+- Existing non-empty targets require `--overwrite`.
+- The target directory is created when needed.
 
-Useful options:
+Variable precedence:
 
-```text
---git-url <url>        direct Git template URL
---branch <branch>      Git branch
---subdir <path>        template subdirectory
---target <dir>         required output directory
---var <key=value>      template variable assignment; can be repeated
---vars <path>          JSON file containing template variables
---overwrite            allow writing into a non-empty target directory
---keep-git             keep the cloned .git directory
---allow-hooks          allow template hooks
---json                 output JSON
-```
+1. Values from `--vars <path>`.
+2. Values from repeated `--var key=value`.
+3. Defaults from template questions, applied only when the variable is still missing.
 
-By default:
+`--var` parses `true`, `false`, `null`, and numbers as scalar values. Other values remain strings.
 
-- `.git` is stripped from generated output
-- template hooks are not executed
-- writing into a non-empty target directory fails unless `--overwrite` is passed
+The current implementation is non-interactive. Template questions are used for defaults and required-variable validation, but the CLI does not prompt for missing values.
 
 ## Template Configuration
 
-Templates can include an AgileBuilder configuration file in the template root. If no config file is found, generation continues with a warning and the default config.
+A template should include this configuration file at its template root:
 
-The template engine supports:
-
-- variable replacement in file contents
-- variable replacement in file and directory names
-- optional file pattern rules
-- optional hooks when explicitly allowed
-- workspace-provided template definitions for cloud resources
-
-For cloud template resources, `template.definition.configSource` controls where variables and hooks come from:
-
-- `workspace` uses the definition returned by the workspace/backend
-- `template_files` reads the template root configuration file
-
-Hooks are disabled by default. Use `--allow-hooks` only for templates you trust.
-
-## Authentication And Cloud Access
-
-Login with an API key:
-
-```bash
-ag login --api-key <API_KEY>
+```text
+.agilebuilder.config.yaml
 ```
 
-Start browser OAuth login:
+If no config file is found, generation continues with a default config and reports a warning.
 
-```bash
-ag login
+Supported config shape:
+
+```yaml
+version: 1
+name: service-template
+description: Service starter
+source:
+  subdir: template
+variables:
+  enabled: true
+  delimiter: "%"
+  filePatterns:
+    mode: include
+    patterns:
+      - "**/*.ts"
+      - "package.json"
+  inquirerQuestions:
+    - name: appName
+      type: input
+      message: Application name
+      required: true
+      default: my-app
+hooks:
+  after_write:
+    scriptType: shell
+    script: npm install
+    errorHandling: warn
 ```
 
-Inspect auth status:
+Variable rendering:
 
-```bash
-ag auth status --json
+- `source.subdir` is optional. It points to the actual template file root inside the checked-out template directory, and is useful when the config file lives at the repository root but generated files live under a nested directory such as `template/`.
+- `source.type` is not part of the template-file config. The template acquisition source is determined by the command, resource, or Cloud template definition.
+- File contents use EJS rendering.
+- The default EJS delimiter is `%`, so placeholders use forms such as `<%= appName %>`.
+- Path names are rendered when variables are enabled.
+- Path names support `{{ variableName }}` and EJS expressions.
+- Binary files are copied without rendering.
+- `.agilebuilder.config.yaml` is not copied to the target.
+
+Built-in template helpers:
+
+```text
+camelCase, pascalCase, kebabCase, snakeCase, uppercase, lowercase
 ```
 
-Log out:
+Example:
 
-```bash
-ag logout --json
+```text
+<%= pascalCase(appName) %>
+<%= helpers.kebabCase(appName) %>
 ```
 
-Authentication notes:
+File pattern modes:
 
-- Local workspace operations do not require login.
-- Cloud workspace and device operations require valid authentication.
-- API key sessions are suitable for automation and non-browser environments.
-- OAuth uses Authorization Code + PKCE.
+| Mode | Behavior |
+| --- | --- |
+| `all` | Render all non-binary files. |
+| `include` | Render files matching at least one pattern. |
+| `exclude` | Render files not matching any pattern. |
 
-Device management:
+Hooks:
 
-```bash
-ag device list --json
-ag device revoke <device-id> --reason "No longer used" --json
-ag device revoke-all --json
-```
+- Only `after_write` is currently evaluated.
+- Only `scriptType: shell` is currently executable.
+- Hooks run in the target directory.
+- Hooks run only when `--allow-hooks` is passed.
+- `errorHandling: stop` fails generation when the hook fails.
+- `errorHandling: warn` and `continue` record the hook as skipped and continue.
 
-## MCP Integration
+## Cloud Template Config
 
-Start the MCP server:
+For Cloud template resources, the backend may return a template definition. When its config source is workspace-managed, AgileBuilder builds the template config from the Cloud resource definition. When the config source is template files, the CLI reads `.agilebuilder.config.yaml` from the cloned template.
+
+Cloud resource access is recorded after successful resource resolution when supported by the backend.
+
+## MCP Server
+
+The package provides an MCP stdio server:
 
 ```bash
 agilebuilder-mcp
 ```
 
-Generic MCP configuration:
+Example MCP client configuration:
 
 ```json
 {
@@ -497,266 +432,143 @@ Generic MCP configuration:
 }
 ```
 
-Development-time MCP configuration:
+MCP tools:
+
+| Tool | Description |
+| --- | --- |
+| `list_resources` | Lists resources in the current workspace. Optional `type`. |
+| `search_resources` | Searches resources in the current workspace. Optional `keyword` and `type`. |
+| `get_resource` | Reads one resource by `resourceId`. |
+| `create_project` | Creates a project from `resourceId` or `gitUrl`. |
+
+`create_project` arguments:
 
 ```json
 {
-  "mcpServers": {
-    "agilebuilder": {
-      "command": "node",
-      "args": ["D:/path/to/agilebuilder/dist/mcp/index.js"]
-    }
+  "resourceId": "1",
+  "gitUrl": "https://github.com/example/template.git",
+  "branch": "main",
+  "subdir": "template",
+  "targetPath": "./app",
+  "variables": { "appName": "app" },
+  "overwrite": false,
+  "keepGit": false,
+  "allowHooks": false
+}
+```
+
+`targetPath` is required. Either `resourceId` or `gitUrl` is required.
+
+MCP resources:
+
+| URI | Description |
+| --- | --- |
+| `agilebuilder://docs/usage` | Usage guide. |
+| `agilebuilder://usage/agent-policy` | Agent policy guidance. |
+| `agilebuilder://docs/catalog` | Catalog of document resources in the current workspace. |
+| `agilebuilder://local/docs/<id>` | Local document resource content. |
+| `agilebuilder://cloud/docs/<id>` | Cloud document resource content. |
+
+The MCP server uses the same selected workspace as the CLI.
+
+## Device Management
+
+Device commands require login:
+
+```bash
+ag device list
+ag device revoke <device-id> --reason "No longer used"
+ag device revoke-all
+```
+
+`revoke-all` revokes all other devices, not the current device.
+
+## JSON Output and Errors
+
+Commands with `--json` write successful output in this shape:
+
+```json
+{
+  "ok": true,
+  "data": {}
+}
+```
+
+Errors are written to stderr:
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Human-readable message",
+    "suggestion": "Optional suggestion",
+    "category": "validation"
   }
 }
 ```
 
-Available MCP tools:
+Without `--json`, errors are printed as readable text.
+
+## Command Reference
 
 ```text
-list_resources
-search_resources
-get_resource
-create_project
+agilebuilder [options] [command]
+ag [options] [command]
 ```
 
-Tool input summary:
+Global options:
 
-```text
-list_resources:   { type?: "template" | "doc" }
-search_resources: { keyword?: string, type?: "template" | "doc" }
-get_resource:     { resourceId: string }
-create_project:   { resourceId?: string, gitUrl?: string, branch?: string, subdir?: string, targetPath: string, variables?: object, overwrite?: boolean, keepGit?: boolean, allowHooks?: boolean }
-```
+| Option | Description |
+| --- | --- |
+| `-V, --version` | Print version. |
+| `-h, --help` | Show help. |
 
-MCP resources:
+Commands:
 
-- expose the AgileBuilder usage guide
-- expose local document resources
-- expose document resources in the current cloud workspace when authenticated and selected
-
-MCP uses the selected workspace. To change what MCP sees, select a workspace with the CLI before starting the MCP server:
-
-```bash
-ag space use local --json
-agilebuilder-mcp
-```
-
-or:
-
-```bash
-ag login --api-key <API_KEY>
-ag space use <space-id> --json
-agilebuilder-mcp
-```
-
-## Configuration
-
-List current configuration:
-
-```bash
-ag config list --json
-```
-
-Read one key:
-
-```bash
-ag config get language --json
-```
-
-Set a key:
-
-```bash
-ag config set language en-US --json
-ag config set backend.profile global --json
-ag config set template.allowHooksDefault true --json
-```
-
-Supported config keys:
-
-```text
-backend.profile              auto | china | global
-language                     auto | zh-CN | en-US
-template.allowHooksDefault   true | false
-```
-
-When `backend.profile` is `auto`, the runtime resolves it using locale and timezone heuristics:
-
-- `zh-CN` locale or China timezone -> `china`
-- otherwise -> `global`
-
-## Environment Variables
-
-Data directory:
-
-```text
-AGILEBUILDER_CORE1_DATA_DIR
-```
-
-Language:
-
-```text
-AGILEBUILDER_LANG
-LC_ALL
-LC_MESSAGES
-LANG
-```
-
-Backend endpoints are built in and always point to official AgileBuilder services.
-They cannot be changed through environment variables.
-
-## Local Data Directory
-
-By default, AgileBuilder Core stores local data under:
-
-```text
-~/.agilebuilder/core
-```
-
-Override it for tests or isolated experiments:
-
-```bash
-AGILEBUILDER_CORE1_DATA_DIR=/tmp/agilebuilder-core1-data
-```
-
-Common local files:
-
-```text
-config.json
-current-space.json
-device.json
-auth.enc
-license-cache.json
-resources/local.json
-```
-
-The data directory may contain sensitive information and should not be shared publicly.
-
-## Programmatic API
-
-The package exposes a small ESM entrypoint:
-
-```ts
-import { APP_VERSION } from "agilebuilder";
-```
-
-The public API is intentionally minimal. For most integrations, use the CLI or MCP server rather than importing internal modules.
+| Command | Description |
+| --- | --- |
+| `config` | Manage CLI configuration. |
+| `login` | Login with OAuth or API key. |
+| `logout` | Clear local authentication. |
+| `auth status` | Show authentication status. |
+| `auth require-token` | Fail unless a valid token is available. |
+| `space list` / `space ls` | List local and Cloud workspaces. |
+| `space current` | Show current workspace. |
+| `space use <workspace>` | Select `local` or a Cloud workspace ID. |
+| `res list` / `res ls` | List resources. |
+| `res search <keyword>` | Search resources. |
+| `res get <id>` | Show resource detail. |
+| `res add template` | Add a template resource. |
+| `res add doc` | Add a document resource. |
+| `res edit <id>` | Edit a resource. |
+| `res remove <id>` / `res rm <id>` | Remove a resource. |
+| `create [resource-id]` | Create a project from a resource or Git URL. |
+| `device list` / `device ls` | List registered devices. |
+| `device revoke <device-id>` | Revoke one device. |
+| `device revoke-all` | Revoke all other devices. |
 
 ## Development
 
-Install dependencies:
-
 ```bash
 npm install
-```
-
-Build:
-
-```bash
 npm run build
-```
-
-Run tests:
-
-```bash
-npm test
-```
-
-Type-check without emitting files:
-
-```bash
 npm run typecheck
-```
-
-Run the CLI from TypeScript source:
-
-```bash
+npm test
 npm run dev -- --help
 ```
 
-Run the compiled CLI:
+The package is TypeScript ESM. Build output is written to `dist/`, and executable wrappers live in `bin/`.
 
-```bash
-node dist/cli/index.js --help
-```
+## Known Limits
 
-Run the compiled MCP server:
+- `res browse` is present but not implemented.
+- `create` does not currently prompt interactively for template variables.
+- Only `after_write` shell hooks are executable.
+- `template.allowHooksDefault` is persisted but not applied by `create`; pass `--allow-hooks`.
+- Local resources are stored in a flat list and do not support folders.
+- Cloud operations depend on the availability and permissions of the AgileBuilder backend APIs.
 
-```bash
-node dist/mcp/index.js
-```
+## License
 
-## Release Checks
-
-Before publishing, run:
-
-```bash
-npm run build
-npm test
-npm audit --omit=dev
-npm pack --dry-run
-```
-
-The npm package is configured to include:
-
-- `bin/`
-- compiled `dist/`
-- `docs/`
-- README files
-- license and open-source maintenance documents
-
-Compiled test files are excluded from the published package.
-
-## Current Limits
-
-- `res browse` is present but not implemented; use `res list`, `res search`, and `res get`.
-- Resource add/edit commands use flags only; JSON input files for resource definitions are not currently supported.
-- `--parent-id` is cloud-only because local resources do not have a directory tree.
-- Cloud resource writes require compatible backend client APIs.
-- This upgraded runtime focuses on CLI and MCP. It does not package the legacy local Web UI runtime.
-- Pro module management is not part of this upgraded CLI package.
-
-## Security And Privacy
-
-- Do not share access tokens, refresh tokens, API keys, device IDs, or raw cache files.
-- Do not publish the full local data directory.
-- Review CLI and MCP output before pasting logs into public issues.
-- Use `--allow-hooks` only with trusted templates.
-- Treat generated project output as potentially sensitive if variables contain private business data.
-
-For security reporting guidance, see [SECURITY.md](./SECURITY.md).
-
-## Open Source Scope
-
-This repository is suitable for open-source collaboration around:
-
-- CLI behavior
-- MCP runtime and tool exposure
-- local data models
-- cloud client integration boundaries
-- resource management and project creation flows
-- documentation, testing, packaging, and CI
-
-It is not the place for proprietary backend implementation details or closed-source Pro internals.
-
-## Feedback And License
-
-Repository:
-
-- `https://github.com/agilebuilder/agilebuilder-core`
-
-Issues:
-
-- `https://github.com/agilebuilder/agilebuilder-core/issues`
-
-Homepage:
-
-- `https://www.agilebuilder.net`
-
-License:
-
-- MIT
-
-Additional references:
-
-- [Current CLI Reference](./docs/core1-current-cli-reference.md)
-- [Production Test Plan](./docs/production-test-plan.md)
+MIT
