@@ -1,193 +1,74 @@
-/**
- * License 存储和验证
- *
- * - 从服务端获取签名后的 License 数据
- * - 本地加密存储
- * - 严格执行签名、设备、客户端类型与过期校验
- */
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { getDataDir } from '../shared/paths.js';
+import { AppError } from '../errors/app-error.js';
+import { ClientApi, type LicenseResponse } from '../client/client-api.js';
+import { TokenStore } from '../auth/token-store.js';
+import { verifyLicenseSignature } from './signature.js';
 
-import {
-  createCipheriv,
-  createDecipheriv,
-  randomBytes,
-  createHash,
-} from 'crypto';
-import {
-  existsSync,
-  readFileSync,
-  writeFileSync,
-  mkdirSync,
-  unlinkSync,
-} from 'fs';
-import { dirname } from 'path';
-import { homedir } from 'os';
-import { CLIENT_TYPE } from '../shared/constants.js';
-import { getLicenseFilePath } from '../shared/paths.js';
-import { getDeviceId } from './device.js';
-import { verifyLicenseResponse } from './signature.js';
-import type {
-  LicenseData,
-  LicenseResponse,
-  SignedClaims,
-  SpaceInfo,
-} from '../shared/types.js';
+const LICENSE_CACHE_TTL_MS = 60 * 60 * 1000;
 
-function deriveKey(): Buffer {
-  const deviceId = getDeviceId();
-  const machineId = `${homedir()}:${process.platform}:${process.arch}`;
-  return createHash('sha256')
-    .update(`agilebuilder:license:${machineId}:${deviceId}`)
-    .digest();
+function getLicenseFilePath(): string {
+  return join(getDataDir(), 'license-cache.json');
 }
 
-export interface LicenseValidationResult {
-  valid: boolean;
-  error?: string;
-  claims?: SignedClaims<LicenseData>;
-}
-
-export interface LicenseValidationOptions {
-  enforceFreshness?: boolean;
-  maxAgeMs?: number | null;
+export interface CachedLicense {
+  fetchedAt: number;
+  response: LicenseResponse;
 }
 
 export class LicenseStore {
-  static save(licenseResponse: LicenseResponse): void {
-    const licenseFile = getLicenseFilePath();
-    const dir = dirname(licenseFile);
-
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
-    }
-
-    const key = deriveKey();
-    const iv = randomBytes(16);
-    const cipher = createCipheriv('aes-256-cbc', key, iv);
-
-    const jsonStr = JSON.stringify(licenseResponse);
-    let encrypted = cipher.update(jsonStr, 'utf8', 'base64');
-    encrypted += cipher.final('base64');
-
-    writeFileSync(licenseFile, `${iv.toString('base64')}:${encrypted}`, 'utf-8');
-  }
-
-  static load(): LicenseResponse | null {
-    const licenseFile = getLicenseFilePath();
-
-    if (!existsSync(licenseFile)) {
+  static load(): CachedLicense | null {
+    const filePath = getLicenseFilePath();
+    if (!existsSync(filePath)) {
       return null;
     }
-
     try {
-      const content = readFileSync(licenseFile, 'utf-8');
-      if (!content || !content.includes(':')) {
-        return null;
-      }
-
-      const [ivBase64, encrypted] = content.split(':');
-      const key = deriveKey();
-      const iv = Buffer.from(ivBase64, 'base64');
-      const decipher = createDecipheriv('aes-256-cbc', key, iv);
-
-      let decrypted = decipher.update(encrypted, 'base64', 'utf8');
-      decrypted += decipher.final('utf8');
-
-      return JSON.parse(decrypted) as LicenseResponse;
+      return JSON.parse(readFileSync(filePath, 'utf8')) as CachedLicense;
     } catch {
       return null;
     }
   }
 
-  static clear(): void {
-    const licenseFile = getLicenseFilePath();
-    if (existsSync(licenseFile)) {
-      unlinkSync(licenseFile);
-    }
+  static save(response: LicenseResponse): void {
+    verifyLicenseSignature(response);
+    const filePath = getLicenseFilePath();
+    mkdirSync(dirname(filePath), { recursive: true });
+    const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+    writeFileSync(tempPath, `${JSON.stringify({ fetchedAt: Date.now(), response }, null, 2)}\n`, 'utf8');
+    renameSync(tempPath, filePath);
   }
 
-  static validateLicenseResponse(
-    licenseResponse: LicenseResponse,
-    options: LicenseValidationOptions = {}
-  ): LicenseValidationResult {
-    if (!licenseResponse?.data?.license || !licenseResponse?.data?.user) {
-      return {
-        valid: false,
-        error: 'Invalid license payload structure',
-      };
-    }
-
-    const { enforceFreshness = false, maxAgeMs } = options;
-
-    return verifyLicenseResponse(licenseResponse, {
-      expectedDeviceId: getDeviceId(),
-      expectedClientType: CLIENT_TYPE,
-      maxAgeMs: enforceFreshness ? maxAgeMs : null,
-    }) as LicenseValidationResult;
-  }
-
-  static verifySignature(licenseResponse: LicenseResponse): boolean {
-    return this.validateLicenseResponse(licenseResponse).valid;
-  }
-
-  static isExpired(licenseResponse: LicenseResponse): boolean {
-    if (!licenseResponse?.data?.license?.expiresAt) {
-      return true;
-    }
-
-    const expiresAt = new Date(licenseResponse.data.license.expiresAt).getTime();
-    return !Number.isFinite(expiresAt) || Date.now() >= expiresAt;
-  }
-
-  static needsRefresh(): boolean {
-    const licenseResponse = this.load();
-    if (!licenseResponse) {
-      return true;
-    }
-
-    if (!licenseResponse?.data?.license?.expiresAt) {
-      return true;
-    }
-
-    const refreshThreshold = 5 * 60 * 1000;
-    const expiresAt = new Date(licenseResponse.data.license.expiresAt).getTime();
-    return !Number.isFinite(expiresAt) || Date.now() >= expiresAt - refreshThreshold;
-  }
-
-  static getValidLicenseData(): LicenseData | null {
-    const licenseResponse = this.load();
-    if (!licenseResponse) {
+  static getValidCached(): LicenseResponse | null {
+    const cached = this.load();
+    if (!cached) {
       return null;
     }
-
-    if (this.isExpired(licenseResponse)) {
+    if (Date.now() - cached.fetchedAt > LICENSE_CACHE_TTL_MS) {
       return null;
     }
+    return cached.response;
+  }
 
-    const validation = this.validateLicenseResponse(licenseResponse);
-    if (!validation.valid) {
+  static async refresh(): Promise<LicenseResponse> {
+    const token = await TokenStore.getValidToken();
+    if (!token) {
+      throw new AppError({ code: 'AUTH_TOKEN_UNAVAILABLE', message: 'Login is required to refresh license.', category: 'auth' });
+    }
+    const response = await ClientApi.getLicense(token);
+    this.save(response);
+    return response;
+  }
+
+  static async getOrRefresh(force = false): Promise<LicenseResponse | null> {
+    if (!force) {
+      const cached = this.getValidCached();
+      if (cached) return cached;
+    }
+    const token = await TokenStore.getValidToken();
+    if (!token) {
       return null;
     }
-
-    return licenseResponse.data;
-  }
-
-  static getSpaces(): SpaceInfo[] {
-    const data = this.getValidLicenseData();
-    return data?.spaces || [];
-  }
-
-  static hasProAccess(): boolean {
-    const data = this.getValidLicenseData();
-    return data?.user?.hasPro || false;
-  }
-
-  static getUserInfo(): LicenseData['user'] | null {
-    const data = this.getValidLicenseData();
-    return data?.user || null;
-  }
-
-  static getLicenseInfo(): LicenseData['license'] | null {
-    const data = this.getValidLicenseData();
-    return data?.license || null;
+    return this.refresh();
   }
 }

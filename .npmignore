@@ -1,62 +1,27 @@
-# 源代码（只发布编译后的代码）
 src/
 *.ts
 !*.d.ts
 tsconfig.json
 
-# 开发文件
-.vscode/
+.github/
 .git/
 .gitignore
-*.log
+.npmignore
+.vscode/
 node_modules/
+coverage/
 
-# UI 源码（只发布构建后的）
-ui/src/
-ui/node_modules/
-ui/package.json
-ui/package-lock.json
-ui/vite.config.js
-ui/.gitignore
-
-# 内部脚本
-scripts/
-test-script/
-
-# 测试和文档草稿
-test/
-tests/
-*.test.js
-*.spec.js
-*.test.ts
-*.spec.ts
-dist/**/*.test.js
-dist/**/*.spec.js
-dist/test/
-
-# 临时文件
+*.log
 *.tmp
 *.temp
+*.tgz
 .DS_Store
 .env
 .env.local
 .env.*.local
-
-# 构建临时文件
 *.tsbuildinfo
 
-# 文档（保留主要文档）
-# 可以选择性包含或排除
-# *.md 会排除所有 markdown，但我们想保留 README 等
-# 所以不添加这一行
-
-# 其他
-coverage/
-.nyc_output/
-*.tgz
-
-# 文档目录（根据需要决定是否包含）
-docs/
-
-# 已打包的文件
-agilebuilder-*.tgz
+dist/**/*.test.js
+dist/**/*.test.d.ts
+dist/**/*.test.js.map
+dist/**/*.test.d.ts.map

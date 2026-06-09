@@ -6,24 +6,21 @@ All notable changes to this project should be documented in this file.
 
 ### Added
 
-- Smoke test script for CLI and MCP release verification
-- GitHub Actions CI workflow for build, smoke test, and package validation
-- Contributing, security, code of conduct, changelog, and issue templates for open-source maintenance
+- Release metadata aligned with the public AgileBuilder package and repository.
+- Open-source maintenance documents: contributing guide, security policy, code of conduct, changelog, and issue templates.
+- Package validation rules that exclude compiled test files from the npm tarball.
 
 ### Changed
 
-- Release documentation now reflects the current CLI command model
-- Runtime version constants now match the package version
+- README now reflects the current upgraded CLI/MCP runtime, including local and cloud workspaces, resource management, template generation, and MCP usage.
+- Published package name and repository metadata now match the AgileBuilder Core project.
 
-## [1.0.3] - 2026-03-11
+## [0.1.0] - 2026-06-08
 
 ### Added
 
-- Public npm metadata for repository, bugs, and homepage
-
-### Changed
-
-- Production dependencies upgraded to resolve known vulnerabilities
-- Build pipeline now cleans `dist/` before compiling
-- Sensitive debug output was reduced to sanitized summaries
-- Public environment examples no longer expose internal network endpoints
+- Lightweight upgraded CLI runtime with local/cloud resource management.
+- Template generation from Git URLs and template resources.
+- API key and OAuth login flows.
+- Workspace selection for local and cloud spaces.
+- MCP server with resource discovery, resource reading, and project creation tools.

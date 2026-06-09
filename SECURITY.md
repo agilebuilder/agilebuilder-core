@@ -9,6 +9,7 @@ Security issues affecting the published `agilebuilder` npm package and this repo
 - CLI command execution
 - MCP server exposure
 - dependency vulnerabilities
+- template generation behavior
 
 ## Reporting
 
@@ -35,7 +36,8 @@ For potential security issues:
 
 Do not include:
 
-- access tokens or refresh tokens
-- local auth/license cache contents
+- access tokens, refresh tokens, or API keys
+- local auth or license cache contents
 - private backend URLs or credentials
 - device IDs, workspace IDs, or resource IDs unless redacted
+- generated project contents that contain private business data

@@ -2,36 +2,33 @@
 
 ## Scope
 
-This repository is the open-source `core` runtime for AgileBuilder. It includes the CLI, Web UI server, local data/runtime logic, and MCP entrypoint.
+This repository is the open-source runtime for AgileBuilder. The current upgraded runtime focuses on CLI behavior, local/cloud resource management, template generation, authentication, workspace selection, and MCP integration.
 
 Before contributing, make sure your change fits the open-source boundary:
 
-- Open-source scope: CLI behavior, local resource management, MCP runtime, Web UI, docs, build/test/release tooling
-- Out of scope here: closed-source Pro module internals and private backend implementation details
+- Open-source scope: CLI behavior, local resource management, cloud client integration, MCP runtime, docs, build/test/release tooling.
+- Out of scope here: proprietary backend implementation details and closed-source Pro internals.
 
-## Public vs Internal API
+## Public API
 
-- `agilebuilder` is the public stable Node entrypoint and should stay intentionally small
-- `agilebuilder/internal` exists for first-party packages such as the desktop sidecar
-- Do not move internal-only classes or stores into the public entrypoint unless you explicitly want to support them as stable API
+- `agilebuilder` is the public package and CLI runtime.
+- Keep the public Node entrypoint intentionally small.
+- Avoid exposing internal stores, clients, or command internals as stable API unless they are meant to be supported across releases.
 
 ## Development Setup
 
 ```bash
 npm install
-cd ui
-npm install
-cd ..
 npm run build
 npm test
 ```
 
 ## Branch and PR Expectations
 
-- Keep changes focused and reviewable
-- Update docs when behavior changes
-- Add or update smoke coverage when release behavior changes
-- Do not commit secrets, local `.env` files, tokens, or internal-only URLs
+- Keep changes focused and reviewable.
+- Update docs when behavior changes.
+- Add or update tests when release behavior changes.
+- Do not commit secrets, local `.env` files, tokens, API keys, or internal-only URLs.
 
 ## Reporting Bugs
 
@@ -41,15 +38,16 @@ Use GitHub Issues:
 
 Before filing a bug:
 
-- confirm the issue still reproduces on the latest `main`
-- include `ag --version`
-- include sanitized logs only
-- remove tokens, private paths, `spaceId`, `resourceId`, device IDs, and backend secrets
+- Confirm the issue still reproduces on the latest release or main branch.
+- Include `ag --version`.
+- Include sanitized logs only.
+- Remove tokens, private paths, workspace IDs, resource IDs, device IDs, and backend secrets.
 
 ## Pull Request Checklist
 
 - `npm run build`
 - `npm test`
+- `npm audit --omit=dev`
 - `npm pack --dry-run`
 - Relevant docs updated
 - No sensitive data added to the repository

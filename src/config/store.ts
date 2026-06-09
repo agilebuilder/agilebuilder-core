@@ -1,163 +1,138 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { dirname } from 'path';
-import { getCliConfigFilePath } from '../shared/paths.js';
-import { type BackendProfile, type BackendProfileSetting } from './backend-profiles.js';
-import type { LocaleCode } from '../i18n/index.js';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
+import { getConfigFilePath } from '../shared/paths.js';
+import { normalizeLanguage } from '../i18n/index.js';
+import type { LanguageSetting } from '../shared/constants.js';
 
-export type CliLanguageSetting = 'auto' | LocaleCode;
+export type BackendProfile = 'auto' | 'china' | 'global';
 
 export interface CliConfig {
-  language: CliLanguageSetting;
-  backendProfile: BackendProfileSetting;
-  resolvedBackendProfile: BackendProfile;
+  backend: {
+    profile: BackendProfile;
+  };
+  language: LanguageSetting;
+  template: {
+    allowHooksDefault: boolean;
+  };
 }
 
 const DEFAULT_CONFIG: CliConfig = {
+  backend: {
+    profile: 'auto',
+  },
   language: 'auto',
-  backendProfile: 'auto',
-  resolvedBackendProfile: 'china',
+  template: {
+    allowHooksDefault: false,
+  },
 };
 
-const CHINA_TIMEZONES = new Set([
-  'asia/shanghai',
-  'asia/chongqing',
-  'asia/harbin',
-  'asia/urumqi',
+const CONFIG_PATHS = new Set([
+  'backend.profile',
+  'language',
+  'template.allowHooksDefault',
 ]);
 
-function isBackendProfile(value: unknown): value is BackendProfile {
-  return value === 'china' || value === 'global';
+function normalizeBackendProfile(value: unknown): BackendProfile {
+  if (value === 'china' || value === 'global' || value === 'auto') {
+    return value;
+  }
+  throw new Error(`Invalid backend.profile: ${String(value)}`);
 }
 
-function isBackendProfileSetting(value: unknown): value is BackendProfileSetting {
-  return value === 'auto' || isBackendProfile(value);
-}
-
-function detectBackendProfileFromSystem(): BackendProfile {
-  const localeCandidates = [
-    process.env.AGILEBUILDER_LOCALE,
-    process.env.LC_ALL,
-    process.env.LC_MESSAGES,
-    process.env.LANG,
-    Intl.DateTimeFormat().resolvedOptions().locale,
-  ];
-
-  for (const candidate of localeCandidates) {
-    if (typeof candidate === 'string' && candidate.toLowerCase().startsWith('zh-cn')) {
-      return 'china';
-    }
+function requireBoolean(path: string, value: unknown): boolean {
+  if (typeof value === 'boolean') {
+    return value;
   }
-
-  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  if (typeof timezone === 'string' && CHINA_TIMEZONES.has(timezone.toLowerCase())) {
-    return 'china';
-  }
-
-  return 'global';
+  throw new Error(`Invalid ${path}: expected boolean.`);
 }
 
 function normalizeConfig(value: unknown): CliConfig {
   if (!value || typeof value !== 'object') {
-    return {
-      ...DEFAULT_CONFIG,
-      resolvedBackendProfile: detectBackendProfileFromSystem(),
-    };
+    throw new Error('Invalid config: expected object.');
   }
 
-  const config = value as Partial<CliConfig>;
-  const language = config.language;
-  const backendProfile = config.backendProfile;
-  const resolvedBackendProfile = config.resolvedBackendProfile;
-  const normalizedLanguage = language === 'zh-CN' || language === 'en-US' || language === 'auto'
-    ? language
-    : DEFAULT_CONFIG.language;
-  const normalizedBackendProfile = isBackendProfileSetting(backendProfile)
-    ? backendProfile
-    : DEFAULT_CONFIG.backendProfile;
-  const normalizedResolvedBackendProfile = isBackendProfile(resolvedBackendProfile)
-    ? resolvedBackendProfile
-    : detectBackendProfileFromSystem();
-
+  const raw = value as Partial<CliConfig>;
   return {
-    language: normalizedLanguage,
-    backendProfile: normalizedBackendProfile,
-    resolvedBackendProfile: normalizedResolvedBackendProfile,
+    backend: {
+      profile: normalizeBackendProfile(raw.backend?.profile),
+    },
+    language: normalizeLanguage(raw.language),
+    template: {
+      allowHooksDefault: requireBoolean('template.allowHooksDefault', raw.template?.allowHooksDefault),
+    },
   };
 }
 
-export class CliConfigStore {
+function cloneDefaultConfig(): CliConfig {
+  return JSON.parse(JSON.stringify(DEFAULT_CONFIG)) as CliConfig;
+}
+
+function requireKnownPath(path: string): void {
+  if (!CONFIG_PATHS.has(path)) {
+    throw new Error(`Unknown config key: ${path}`);
+  }
+}
+
+function setByPath(target: Record<string, unknown>, path: string, value: unknown): void {
+  const parts = path.split('.');
+  let cursor = target;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const part = parts[i];
+    const current = cursor[part];
+    if (!current || typeof current !== 'object' || Array.isArray(current)) {
+      cursor[part] = {};
+    }
+    cursor = cursor[part] as Record<string, unknown>;
+  }
+  cursor[parts[parts.length - 1]] = value;
+}
+
+function getByPath(target: unknown, path: string): unknown {
+  return path.split('.').reduce<unknown>((cursor, part) => {
+    if (!cursor || typeof cursor !== 'object') {
+      return undefined;
+    }
+    return (cursor as Record<string, unknown>)[part];
+  }, target);
+}
+
+function parseConfigValue(value: string): unknown {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  if (/^-?\d+(\.\d+)?$/.test(value)) return Number(value);
+  return value;
+}
+
+export class ConfigStore {
   static load(): CliConfig {
-    const configFile = getCliConfigFilePath();
-
-    if (!existsSync(configFile)) {
-      return normalizeConfig(null);
+    const filePath = getConfigFilePath();
+    if (!existsSync(filePath)) {
+      return cloneDefaultConfig();
     }
 
-    try {
-      const content = readFileSync(configFile, 'utf-8');
-      if (!content.trim()) {
-        return normalizeConfig(null);
-      }
-
-      return normalizeConfig(JSON.parse(content));
-    } catch {
-      return normalizeConfig(null);
-    }
+    return normalizeConfig(JSON.parse(readFileSync(filePath, 'utf8')));
   }
 
   static save(config: CliConfig): void {
-    const configFile = getCliConfigFilePath();
-    const dir = dirname(configFile);
-
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
-    }
-
-    writeFileSync(configFile, `${JSON.stringify(normalizeConfig(config), null, 2)}\n`, 'utf-8');
+    const filePath = getConfigFilePath();
+    mkdirSync(dirname(filePath), { recursive: true });
+    const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+    writeFileSync(tempPath, `${JSON.stringify(normalizeConfig(config), null, 2)}\n`, 'utf8');
+    renameSync(tempPath, filePath);
   }
 
-  static getLanguage(): CliLanguageSetting {
-    return this.load().language;
+  static get(path: string): unknown {
+    requireKnownPath(path);
+    return getByPath(this.load(), path);
   }
 
-  static setLanguage(language: CliLanguageSetting): void {
-    const config = this.load();
-    this.save({
-      ...config,
-      language,
-    });
-  }
-
-  static getBackendProfileSetting(): BackendProfileSetting {
-    return this.load().backendProfile;
-  }
-
-  static getResolvedBackendProfile(): BackendProfile {
-    const config = this.load();
-    return config.backendProfile === 'auto'
-      ? config.resolvedBackendProfile
-      : config.backendProfile;
-  }
-
-  static setBackendProfileSetting(backendProfile: BackendProfileSetting): void {
-    const config = this.load();
-    this.save({
-      ...config,
-      backendProfile,
-    });
-  }
-
-  static initializeBackendProfileIfNeeded(): CliConfig {
-    const config = this.load();
-    const nextConfig: CliConfig = {
-      ...config,
-      resolvedBackendProfile: config.resolvedBackendProfile,
-    };
-
-    if (!existsSync(getCliConfigFilePath())) {
-      this.save(nextConfig);
-    }
-
-    return nextConfig;
+  static set(path: string, rawValue: string): CliConfig {
+    requireKnownPath(path);
+    const current = this.load();
+    const mutable = JSON.parse(JSON.stringify(current)) as Record<string, unknown>;
+    setByPath(mutable, path, parseConfigValue(rawValue));
+    const normalized = normalizeConfig(mutable);
+    this.save(normalized);
+    return normalized;
   }
 }

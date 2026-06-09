@@ -1,120 +1,66 @@
-/**
- * MCP 服务入口
- *
- * 提供 AgileBuilder 的 MCP 服务，包括：
- * - Tools: 模板管理、空间信息
- * - Resources: 文档资源
- */
-
+#!/usr/bin/env node
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
   CallToolRequestSchema,
-  ListToolsRequestSchema,
   ListResourcesRequestSchema,
+  ListToolsRequestSchema,
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { MCP_SERVER_NAME, MCP_VERSION } from '../shared/constants.js';
-import { initDatabase } from '../db/index.js';
-import { t } from '../i18n/index.js';
+import { APP_VERSION } from '../shared/constants.js';
+import { AppError, toAppError } from '../errors/app-error.js';
+import { getMCPContext } from './context.js';
+import { toolResult, errorResult } from './shared.js';
+import { listMcpResources, readMcpResource, USAGE_GUIDE_URI } from './resources/index.js';
+import { toolSchemas, listResources, getResource, createProject } from './tools/index.js';
 
-// Tools
-import { TOOLS } from './tools/index.js';
-import { listTemplates } from './tools/templates/list.js';
-import { searchTemplates } from './tools/templates/search.js';
-import { getTemplateInfo } from './tools/templates/info.js';
-import { cloneTemplate } from './tools/templates/clone.js';
-
-// Resources
-import { listDocResources, readDocResource } from './resources/index.js';
-
-// 创建 MCP 服务器
 const server = new Server(
-  { name: MCP_SERVER_NAME, version: MCP_VERSION },
-  { capabilities: { tools: {}, resources: {} } }
+  { name: 'agilebuilder-core1-mcp', version: APP_VERSION },
+  { capabilities: { tools: {}, resources: {} } },
 );
 
-/**
- * 列出所有可用的 Tools
- */
-server.setRequestHandler(ListToolsRequestSchema, async () => {
-  return { tools: TOOLS };
-});
+server.setRequestHandler(ListToolsRequestSchema, async () => ({
+  tools: toolSchemas,
+}));
 
-/**
- * 列出所有可用的 Resources
- */
 server.setRequestHandler(ListResourcesRequestSchema, async () => {
-  const { resources } = await listDocResources();
-  return { resources };
-});
-
-/**
- * 读取 Resource 内容
- */
-server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-  const uri = request.params.uri;
-  const result = await readDocResource(uri);
-
-  if (!result.success) {
-    throw new Error(`[${result.error.code}] ${result.error.message}`);
-  }
-
-  return {
-    contents: [result.content],
-  };
-});
-
-/**
- * 调用 Tool
- */
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
-
   try {
-    switch (name) {
-      // 模板相关
-      case 'listTemplates':
-        return await listTemplates(args || {});
-      case 'searchTemplates':
-        return await searchTemplates(args as any);
-      case 'getTemplateInfo':
-        return await getTemplateInfo(args as any);
-      case 'createProjectByTemplate':
-        return await cloneTemplate(args as any);
+    const context = await getMCPContext();
+    return await listMcpResources(context.spaceId);
+  } catch {
+    return { resources: [{ uri: USAGE_GUIDE_URI, name: 'AgileBuilder Core1 Usage Guide', mimeType: 'text/markdown' }] };
+  }
+});
 
+server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+  try {
+    const context = await getMCPContext();
+    return await readMcpResource(request.params.uri, context.spaceId);
+  } catch (error) {
+    const appError = toAppError(error);
+    throw new Error(`[${appError.code}] ${appError.message}`);
+  }
+});
+
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  try {
+    const args = (request.params.arguments || {}) as Record<string, unknown>;
+    switch (request.params.name) {
+      case 'list_resources':
+        return toolResult(await listResources(args));
+      case 'search_resources':
+        return toolResult(await listResources(args));
+      case 'get_resource':
+        return toolResult(await getResource(args));
+      case 'create_project':
+        return toolResult(await createProject(args));
       default:
-        throw new Error(t('mcp.unknownTool', { name }));
+        throw new AppError({ code: 'UNKNOWN_TOOL', message: `Unknown tool: ${request.params.name}`, category: 'validation' });
     }
   } catch (error) {
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify({
-              success: false,
-              error: {
-                code: 'TOOL_ERROR',
-                message: error instanceof Error ? error.message : t('common.unknownError'),
-              },
-            }),
-        },
-      ],
-    };
+    return errorResult(error);
   }
 });
 
-/**
- * 启动 MCP 服务
- */
-async function main() {
-  await initDatabase();
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error(t('mcp.serverRunning'));
-}
-
-main().catch((error) => {
-  console.error(`${t('mcp.fatalError')}:`, error);
-  process.exit(1);
-});
+const transport = new StdioServerTransport();
+await server.connect(transport);
