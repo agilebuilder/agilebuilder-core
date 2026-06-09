@@ -3,6 +3,12 @@ import { Command } from 'commander';
 import { AppError } from '../errors/app-error.js';
 import { t } from '../i18n/index.js';
 import { printError, writeSuccess } from '../output/format.js';
+import {
+  renderResourceDetail,
+  renderResourceList,
+  renderResourceRemoved,
+  renderResourceSaved,
+} from '../output/cli-renderers.js';
 import { LocalResourceRepository } from '../resources/local-repository.js';
 import type { ResourceType } from '../resources/types.js';
 import { WorkspaceStore } from '../workspace/store.js';
@@ -87,11 +93,11 @@ export function createResCommand(): Command {
       const current = WorkspaceStore.getCurrent();
       if (current.id === LOCAL_SPACE_ID) {
         const items = await repository.list({ type });
-        writeSuccess({ workspaceId: current.id, items, total: items.length }, options);
+        writeSuccess({ workspaceId: current.id, items, total: items.length }, options, renderResourceList);
         return;
       }
       const result = await cloudRepository.list({ spaceId: current.id, type });
-      writeSuccess({ workspaceId: current.id, ...result }, options);
+      writeSuccess({ workspaceId: current.id, ...result }, options, renderResourceList);
     });
 
   command
@@ -105,11 +111,11 @@ export function createResCommand(): Command {
       const current = WorkspaceStore.getCurrent();
       if (current.id === LOCAL_SPACE_ID) {
         const items = await repository.list({ type, keyword });
-        writeSuccess({ workspaceId: current.id, items, total: items.length }, options);
+        writeSuccess({ workspaceId: current.id, items, total: items.length }, options, renderResourceList);
         return;
       }
       const result = await cloudRepository.list({ spaceId: current.id, type, keyword });
-      writeSuccess({ workspaceId: current.id, ...result }, options);
+      writeSuccess({ workspaceId: current.id, ...result }, options, renderResourceList);
     });
 
   command
@@ -122,7 +128,7 @@ export function createResCommand(): Command {
       const resource = current.id === LOCAL_SPACE_ID
         ? await repository.require(id)
         : await cloudRepository.get(current.id, id);
-      writeSuccess(resource, options);
+      writeSuccess(resource, options, renderResourceDetail);
     });
 
   const add = new Command('add')
@@ -154,7 +160,7 @@ export function createResCommand(): Command {
       const resource = target === LOCAL_SPACE_ID
         ? await repository.addTemplate(input)
         : await cloudRepository.addTemplate(target, { ...input, parentId: options.parentId });
-      writeSuccess(resource, options);
+      writeSuccess(resource, options, renderResourceSaved);
     });
 
   add
@@ -194,7 +200,7 @@ export function createResCommand(): Command {
       const resource = target === LOCAL_SPACE_ID
         ? await repository.addDoc(input)
         : await cloudRepository.addDoc(target, { ...input, parentId: options.parentId });
-      writeSuccess(resource, options);
+      writeSuccess(resource, options, renderResourceSaved);
     });
 
   command.addCommand(add);
@@ -242,7 +248,14 @@ export function createResCommand(): Command {
       const resource = target === LOCAL_SPACE_ID
         ? await repository.update(id, input)
         : await cloudRepository.update(target, id, input);
-      writeSuccess(resource, options);
+      if (!resource) {
+        throw new AppError({
+          code: 'RESOURCE_NOT_FOUND',
+          message: t('res.notFound', { id }),
+          category: 'resource',
+        });
+      }
+      writeSuccess(resource, options, renderResourceSaved);
     });
 
   command
@@ -274,7 +287,7 @@ export function createResCommand(): Command {
       } else {
         await cloudRepository.remove(target, id);
       }
-      writeSuccess({ message: t('res.remove.success'), id }, options);
+      writeSuccess({ message: t('res.remove.success'), id }, options, renderResourceRemoved);
     });
 
   command

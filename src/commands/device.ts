@@ -4,6 +4,11 @@ import { AppError } from '../errors/app-error.js';
 import { writeSuccess } from '../output/format.js';
 import { TokenStore } from '../auth/token-store.js';
 import { t } from '../i18n/index.js';
+import {
+  renderDeviceList,
+  renderDeviceRevoke,
+  renderDeviceRevokeAll,
+} from '../output/cli-renderers.js';
 
 interface JsonOption {
   json?: boolean;
@@ -33,7 +38,7 @@ export function createDeviceCommand(): Command {
     .option('--json', 'Output JSON')
     .action(async (options: JsonOption) => {
       const token = await requireToken();
-      writeSuccess(await ClientApi.listDevices(token), options);
+      writeSuccess(await ClientApi.listDevices(token), options, renderDeviceList);
     });
 
   command
@@ -45,7 +50,7 @@ export function createDeviceCommand(): Command {
     .action(async (deviceId: string, options: JsonOption & { reason?: string }) => {
       const token = await requireToken();
       const result = await ClientApi.revokeDevice(token, deviceId, options.reason);
-      writeSuccess({ revoked: true, deviceId, result }, options);
+      writeSuccess({ revoked: true, deviceId, result }, options, renderDeviceRevoke);
     });
 
   command
@@ -55,7 +60,7 @@ export function createDeviceCommand(): Command {
     .action(async (options: JsonOption) => {
       const token = await requireToken();
       const result = await ClientApi.revokeAllOtherDevices(token);
-      writeSuccess({ revokedAllOtherDevices: true, result }, options);
+      writeSuccess({ revokedAllOtherDevices: true, result }, options, renderDeviceRevokeAll);
     });
 
   return command;

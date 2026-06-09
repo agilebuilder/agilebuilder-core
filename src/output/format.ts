@@ -6,6 +6,8 @@ export interface OutputOptions {
   json?: boolean;
 }
 
+export type TextRenderer<T> = (data: T) => string;
+
 export function writeOutput(value: unknown, options: OutputOptions = {}): void {
   if (options.json) {
     console.log(JSON.stringify(value, null, 2));
@@ -20,9 +22,17 @@ export function writeOutput(value: unknown, options: OutputOptions = {}): void {
   console.log(JSON.stringify(value, null, 2));
 }
 
-export function writeSuccess(data: unknown, options: OutputOptions = {}): void {
+export function writeSuccess<T>(
+  data: T,
+  options: OutputOptions = {},
+  renderText?: TextRenderer<T>,
+): void {
   if (options.json) {
     writeOutput({ ok: true, data }, options);
+    return;
+  }
+  if (renderText) {
+    writeOutput(renderText(data), options);
     return;
   }
   writeOutput(data, options);

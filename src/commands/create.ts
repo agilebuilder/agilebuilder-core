@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import { AppError } from '../errors/app-error.js';
 import { t } from '../i18n/index.js';
 import { writeSuccess } from '../output/format.js';
+import { renderCreateResult } from '../output/cli-renderers.js';
 import { LocalResourceRepository } from '../resources/local-repository.js';
 import { TemplateEngine } from '../template/engine.js';
 import { cloudResourceToGenerateOptions } from '../template/cloud-resource.js';
@@ -107,6 +108,6 @@ export function createCreateCommand(): Command {
         allowHooks: options.allowHooks,
       });
 
-      writeSuccess(result, options);
+      writeSuccess(result, options, renderCreateResult);
     });
 }

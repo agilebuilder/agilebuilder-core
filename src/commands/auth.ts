@@ -5,6 +5,12 @@ import { writeSuccess } from '../output/format.js';
 import { TokenStore } from '../auth/token-store.js';
 import { oauthLogin } from '../auth/oauth-login.js';
 import { t } from '../i18n/index.js';
+import {
+  renderAuthStatus,
+  renderLogin,
+  renderLogout,
+  renderTokenAvailable,
+} from '../output/cli-renderers.js';
 
 interface JsonOption {
   json?: boolean;
@@ -33,7 +39,7 @@ export function createLoginCommand(): Command {
               console.log(`Open this URL if the browser does not open automatically:\n${url}`);
             }
           });
-      writeSuccess({ user }, options);
+      writeSuccess({ user }, options, renderLogin);
     });
 }
 
@@ -43,7 +49,7 @@ export function createLogoutCommand(): Command {
     .option('--json', 'Output JSON')
     .action((options: JsonOption) => {
       TokenStore.clear();
-      writeSuccess({ loggedOut: true }, options);
+      writeSuccess({ loggedOut: true }, options, renderLogout);
     });
 }
 
@@ -62,7 +68,7 @@ export function createAuthCommand(): Command {
         loggedIn: !!auth && !!token,
         authType: auth?.authType ?? null,
         user: auth?.user ?? null,
-      }, options);
+      }, options, renderAuthStatus);
     });
 
   command
@@ -74,7 +80,7 @@ export function createAuthCommand(): Command {
       if (!token) {
         throw new AppError({ code: 'AUTH_TOKEN_UNAVAILABLE', message: 'No valid token is available.', category: 'auth' });
       }
-      writeSuccess({ available: true }, options);
+      writeSuccess({ available: true }, options, renderTokenAvailable);
     });
 
   return command;

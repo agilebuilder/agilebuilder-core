@@ -2,6 +2,11 @@ import { Command } from 'commander';
 import { LOCAL_SPACE_ID } from '../shared/constants.js';
 import { t } from '../i18n/index.js';
 import { writeSuccess } from '../output/format.js';
+import {
+  renderWorkspaceCurrent,
+  renderWorkspaceList,
+  renderWorkspaceUse,
+} from '../output/cli-renderers.js';
 import { cloudSpaceToWorkspace, getLocalWorkspace, WorkspaceStore } from '../workspace/store.js';
 import { LicenseStore } from '../license/license-store.js';
 import { AppError } from '../errors/app-error.js';
@@ -38,7 +43,7 @@ export function createSpaceCommand(): Command {
             current: current.id === space.id,
           })),
         ],
-      }, options);
+      }, options, renderWorkspaceList);
     });
 
   command
@@ -52,7 +57,7 @@ export function createSpaceCommand(): Command {
       const cloud = license?.data.spaces.find((space) => space.id === current.id);
       writeSuccess(cloud
         ? { ...cloudSpaceToWorkspace(cloud), current: true, selectedAt: current.selectedAt }
-        : { ...local, current: current.id === local.id, selectedAt: current.selectedAt }, options);
+        : { ...local, current: current.id === local.id, selectedAt: current.selectedAt }, options, renderWorkspaceCurrent);
     });
 
   command
@@ -82,7 +87,7 @@ export function createSpaceCommand(): Command {
       writeSuccess({
         message: t('space.use.success', { name }),
         workspace: id === LOCAL_SPACE_ID ? local : { id, name },
-      }, options);
+      }, options, renderWorkspaceUse);
     });
 
   return command;
