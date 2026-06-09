@@ -422,7 +422,7 @@ MVP 依赖接口：
 MVP 推荐存储结构：
 
 ```text
-~/.agilebuilder/core1/
+~/.agilebuilder/core/
   config.json
   auth.enc
   current-space.json

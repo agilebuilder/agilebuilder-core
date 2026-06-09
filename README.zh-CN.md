@@ -626,7 +626,7 @@ endpoint 覆盖规则：
 默认情况下，AgileBuilder Core 将本地数据保存在：
 
 ```text
-~/.agilebuilder/core1
+~/.agilebuilder/core
 ```
 
 测试或隔离实验时可以覆盖：

@@ -626,7 +626,7 @@ Endpoint override rules:
 By default, AgileBuilder Core stores local data under:
 
 ```text
-~/.agilebuilder/core1
+~/.agilebuilder/core
 ```
 
 Override it for tests or isolated experiments:

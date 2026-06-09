@@ -5,7 +5,7 @@ export function getDataDir(): string {
   const dataDirOverride = process.env.AGILEBUILDER_CORE1_DATA_DIR;
   return dataDirOverride
     ? resolve(dataDirOverride)
-    : join(homedir(), '.agilebuilder', 'core1');
+    : join(homedir(), '.agilebuilder', 'core');
 }
 
 export function getConfigFilePath(): string {
