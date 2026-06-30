@@ -36,7 +36,7 @@ export function cloudResourceToGenerateOptions(resource: CloudResourceDetail): C
     subdir: git?.subfolder,
     templateConfig: definition?.configSource === 'workspace'
       ? normalizeTemplateConfig({
-          version: 1,
+          version: '1.0',
           variables: definition.variables,
           hooks: definition.hooks,
         })

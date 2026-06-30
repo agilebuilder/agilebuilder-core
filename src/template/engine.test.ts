@@ -21,7 +21,7 @@ test('TemplateEngine generates from a git repository with AgileBuilder config', 
   try {
     await git(dir, ['init', 'repo']);
     await writeFile(join(repo, '.agilebuilder.config.yaml'), [
-      'version: 1',
+      'version: "1.0"',
       'variables:',
       '  enabled: true',
       '  filePatterns:',
@@ -63,7 +63,7 @@ test('TemplateEngine skips hooks by default and runs them when allowed', async (
   try {
     await git(dir, ['init', 'repo']);
     await writeFile(join(repo, '.agilebuilder.config.yaml'), [
-      'version: 1',
+      'version: "1.0"',
       'hooks:',
       '  after_write:',
       '    scriptType: shell',
@@ -124,7 +124,7 @@ test('TemplateEngine prefers YAML config over JSON config', async () => {
   try {
     await git(dir, ['init', 'repo']);
     await writeFile(join(repo, '.agilebuilder.config.json'), JSON.stringify({
-      version: 1,
+      version: "1.0",
       variables: {
         enabled: true,
         filePatterns: { mode: 'include', patterns: ['**/*.txt'] },
@@ -135,7 +135,7 @@ test('TemplateEngine prefers YAML config over JSON config', async () => {
       hooks: {},
     }), 'utf8');
     await writeFile(join(repo, '.agilebuilder.config.yaml'), [
-      'version: 1',
+      'version: "1.0"',
       'variables:',
       '  enabled: true',
       '  filePatterns:',
@@ -172,7 +172,7 @@ test('TemplateEngine uses source.subdir as the template file root', async () => 
   try {
     await git(dir, ['init', 'repo']);
     await writeFile(join(repo, '.agilebuilder.config.yaml'), [
-      'version: 1',
+      'version: "1.0"',
       'source:',
       '  subdir: template',
       'variables:',
@@ -223,7 +223,7 @@ test('TemplateEngine can use a workspace-provided template config', async () => 
       targetDir: target,
       variables: { projectName: 'from-workspace' },
       templateConfig: {
-        version: 1,
+        version: '1.0',
         variables: {
           enabled: true,
           filePatterns: {

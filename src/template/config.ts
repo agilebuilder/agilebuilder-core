@@ -16,7 +16,7 @@ export interface TemplateQuestion {
 }
 
 export interface TemplateConfig {
-  version: number;
+  version: string;
   name?: string;
   description?: string;
   source?: {
@@ -55,7 +55,7 @@ export interface LoadedTemplateConfig {
 }
 
 export const DEFAULT_TEMPLATE_CONFIG: TemplateConfig = {
-  version: 1,
+  version: '1.0',
   variables: {
     enabled: false,
     filePatterns: {
@@ -129,7 +129,7 @@ export function normalizeTemplateConfig(value: unknown): TemplateConfig {
   const filePatterns = isObject(variables.filePatterns) ? variables.filePatterns : {};
 
   return {
-    version: typeof value.version === 'number' ? value.version : 1,
+    version: typeof value.version === 'string' ? value.version : '1.0',
     name: typeof value.name === 'string' ? value.name : undefined,
     description: typeof value.description === 'string' ? value.description : undefined,
     source: isObject(value.source)

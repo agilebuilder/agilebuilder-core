@@ -27,7 +27,7 @@ test('CLI can add a local template and create a project from it', async () => {
   try {
     await git(dir, ['init', 'repo']);
     await writeFile(join(repo, '.agilebuilder.config.yaml'), [
-      'version: 1',
+      'version: "1.0"',
       'variables:',
       '  enabled: true',
       '  filePatterns:',

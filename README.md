@@ -339,7 +339,7 @@ If no config file is found, generation continues with a default config and repor
 Supported config shape:
 
 ```yaml
-version: 1
+version: '1.0'
 name: service-template
 description: Service starter
 source:

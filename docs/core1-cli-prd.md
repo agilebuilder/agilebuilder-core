@@ -153,7 +153,7 @@ MVP 支持两类资源：
 MVP Schema 示例：
 
 ```yaml
-version: 1
+version: '1.0'
 name: react-admin
 description: React admin starter
 source:

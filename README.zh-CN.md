@@ -339,7 +339,7 @@ ag create <resource-id> --target ./app
 配置示例：
 
 ```yaml
-version: 1
+version: '1.0'
 name: service-template
 description: Service starter
 source:

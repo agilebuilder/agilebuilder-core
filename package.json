@@ -1,6 +1,6 @@
 {
   "name": "agilebuilder",
-  "version": "0.1.0",
+  "version": "1.1.0",
   "description": "AI-native developer tooling for template-based project creation and document-guided development via CLI and MCP.",
   "type": "module",
   "main": "dist/index.js",
