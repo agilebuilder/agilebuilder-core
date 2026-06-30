@@ -83,5 +83,18 @@ export function createAuthCommand(): Command {
       writeSuccess({ available: true }, options, renderTokenAvailable);
     });
 
+  // for GUI Sidecar
+  command
+    .command('token', { hidden: true })
+    .description('Get current valid token (for internal use)')
+    .option('--json', 'Output JSON')
+    .action(async (options: JsonOption) => {
+      const token = await TokenStore.getValidToken();
+      if (!token) {
+        throw new AppError({ code: 'AUTH_TOKEN_UNAVAILABLE', message: 'No valid token is available.', category: 'auth' });
+      }
+      writeSuccess({ token }, options);
+    });
+
   return command;
 }
