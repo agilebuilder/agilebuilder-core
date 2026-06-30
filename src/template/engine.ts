@@ -11,6 +11,7 @@ import { AppError } from '../errors/app-error.js';
 import { loadTemplateConfig } from './config.js';
 import {
   applyQuestionDefaults,
+  promptForMissingVariables,
   validateRequiredQuestions,
 } from './variables.js';
 import type { TemplateConfig } from './config.js';
@@ -25,6 +26,7 @@ export interface GenerateFromGitOptions {
   overwrite?: boolean;
   keepGit?: boolean;
   allowHooks?: boolean;
+  interactive?: boolean;
 }
 
 export interface GenerateResult {
@@ -291,6 +293,12 @@ export class TemplateEngine {
         loaded.config.variables.inquirerQuestions,
         options.variables || {},
       );
+      if (options.interactive && loaded.config.variables.enabled) {
+        await promptForMissingVariables(
+          loaded.config.variables.inquirerQuestions,
+          variables,
+        );
+      }
       validateRequiredQuestions(loaded.config.variables.inquirerQuestions, variables);
 
       await mkdir(options.targetDir, { recursive: true });

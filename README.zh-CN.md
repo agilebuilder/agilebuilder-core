@@ -308,6 +308,7 @@ ag create <resource-id> --target ./app
 | `--overwrite` | 否 | 允许写入非空目标目录。 |
 | `--keep-git` | 否 | 命令接受该选项，但当前文件遍历逻辑仍会跳过 `.git` 目录。 |
 | `--allow-hooks` | 否 | 允许执行支持的模板 Hook。 |
+| `--interactive` | 否 | 交互式地录入缺失的模板变量。 |
 | `--json` | 否 | 输出 JSON。 |
 
 目标目录安全规则：
@@ -318,13 +319,14 @@ ag create <resource-id> --target ./app
 
 变量优先级：
 
-1. `--vars <path>` 中的变量。
-2. 重复传入的 `--var key=value`。
-3. 模板问题中的默认值，仅在变量仍缺失时应用。
+1. 重复传入的 `--var key=value`。
+2. `--vars <path>` 中的变量。
+3. 使用 `--interactive` 时交互式录入的变量，仅在变量仍缺失时应用。
+4. 模板问题中的默认值，仅在变量仍缺失时应用。
 
 `--var` 会将 `true`、`false`、`null` 和数字解析为对应标量类型，其他值保留为字符串。
 
-当前实现是非交互式的。模板问题仅用于默认值应用和必填变量校验，不会弹出交互式输入。
+传入 `--interactive` 后，CLI 会对 `--vars`、`--var` 和默认值补充后仍然缺失的模板变量弹出交互式输入。`--interactive` 需要在 TTY 中运行，且不能与 `--json` 同时使用。
 
 ## 模板配置
 

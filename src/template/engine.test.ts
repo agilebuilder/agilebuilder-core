@@ -250,3 +250,76 @@ test('TemplateEngine can use a workspace-provided template config', async () => 
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('TemplateEngine does not prompt when variables are already provided', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'ag-core1-interactive-provided-'));
+  const repo = join(dir, 'repo');
+  const target = join(dir, 'target');
+  try {
+    await git(dir, ['init', 'repo']);
+    await writeFile(join(repo, '.agilebuilder.config.yaml'), [
+      'version: "1.0"',
+      'variables:',
+      '  enabled: true',
+      '  filePatterns:',
+      '    mode: include',
+      '    patterns:',
+      '      - "**/*.txt"',
+      '  inquirerQuestions:',
+      '    - name: projectName',
+      '      type: input',
+      '      message: Project name',
+      '      required: true',
+      '',
+    ].join('\n'), 'utf8');
+    await writeFile(join(repo, '{{ projectName }}.txt'), 'Hello <%= projectName %>\n', 'utf8');
+    await git(repo, ['add', '.']);
+    await git(repo, ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-m', 'init']);
+
+    const result = await new TemplateEngine().generateFromGit({
+      gitUrl: repo,
+      targetDir: target,
+      variables: { projectName: 'provided-app' },
+      interactive: true,
+    });
+
+    assert.equal(result.success, true);
+    assert.equal((await readFile(join(target, 'provided-app.txt'), 'utf8')).replace(/\r\n/g, '\n'), 'Hello provided-app\n');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('TemplateEngine skips interactive prompts when variables are disabled', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'ag-core1-interactive-disabled-'));
+  const repo = join(dir, 'repo');
+  const target = join(dir, 'target');
+  try {
+    await git(dir, ['init', 'repo']);
+    await writeFile(join(repo, '.agilebuilder.config.yaml'), [
+      'version: "1.0"',
+      'variables:',
+      '  enabled: false',
+      '  inquirerQuestions:',
+      '    - name: projectName',
+      '      type: input',
+      '      message: Project name',
+      '      default: default-app',
+      '',
+    ].join('\n'), 'utf8');
+    await writeFile(join(repo, 'README.md'), 'hello\n', 'utf8');
+    await git(repo, ['add', '.']);
+    await git(repo, ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-m', 'init']);
+
+    const result = await new TemplateEngine().generateFromGit({
+      gitUrl: repo,
+      targetDir: target,
+      interactive: true,
+    });
+
+    assert.equal(result.success, true);
+    assert.equal((await readFile(join(target, 'README.md'), 'utf8')).replace(/\r\n/g, '\n'), 'hello\n');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

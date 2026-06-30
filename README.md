@@ -308,6 +308,7 @@ Options:
 | `--overwrite` | No | Allows writing into a non-empty target directory. |
 | `--keep-git` | No | Accepted by the command, but the current file walker still skips `.git` directories. |
 | `--allow-hooks` | No | Allows supported template hooks to run. |
+| `--interactive` | No | Interactively prompt for missing template variables. |
 | `--json` | No | Emit JSON. |
 
 Target safety:
@@ -318,13 +319,14 @@ Target safety:
 
 Variable precedence:
 
-1. Values from `--vars <path>`.
-2. Values from repeated `--var key=value`.
-3. Defaults from template questions, applied only when the variable is still missing.
+1. Values from repeated `--var key=value`.
+2. Values from `--vars <path>`.
+3. Values entered interactively when `--interactive` is used and the variable is still missing.
+4. Defaults from template questions, applied only when the variable is still missing.
 
 `--var` parses `true`, `false`, `null`, and numbers as scalar values. Other values remain strings.
 
-The current implementation is non-interactive. Template questions are used for defaults and required-variable validation, but the CLI does not prompt for missing values.
+When `--interactive` is provided, the CLI prompts for any template variable that is still missing after applying `--vars`, `--var`, and defaults. `--interactive` requires a TTY and cannot be combined with `--json`.
 
 ## Template Configuration
 

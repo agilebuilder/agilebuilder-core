@@ -23,6 +23,7 @@ interface CreateOptions {
   overwrite?: boolean;
   keepGit?: boolean;
   allowHooks?: boolean;
+  interactive?: boolean;
   json?: boolean;
 }
 
@@ -53,8 +54,24 @@ export function createCreateCommand(): Command {
     .option('--overwrite', 'Allow writing into non-empty target directory')
     .option('--keep-git', 'Keep .git directory when copying template')
     .option('--allow-hooks', 'Allow template hooks')
+    .option('--interactive', t('create.interactive.description'))
     .option('--json', 'Output JSON')
     .action(async (resourceId: string | undefined, options: CreateOptions) => {
+      if (options.interactive && options.json) {
+        throw new AppError({
+          code: 'INTERACTIVE_JSON_CONFLICT',
+          message: t('create.interactive.jsonConflict'),
+          category: 'validation',
+        });
+      }
+      if (options.interactive && !process.stdin.isTTY) {
+        throw new AppError({
+          code: 'INTERACTIVE_NOT_TTY',
+          message: t('create.interactive.notTty'),
+          category: 'validation',
+        });
+      }
+
       const variables = await loadVariables(options);
       let gitUrl = options.gitUrl;
       let branch = options.branch;
@@ -106,6 +123,7 @@ export function createCreateCommand(): Command {
         overwrite: options.overwrite,
         keepGit: options.keepGit,
         allowHooks: options.allowHooks,
+        interactive: options.interactive,
       });
 
       writeSuccess(result, options, renderCreateResult);
