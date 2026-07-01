@@ -1,4 +1,5 @@
 import { SUPPORTED_LOCALES, type LanguageSetting, type LocaleCode } from '../shared/constants.js';
+import { AppError } from '../errors/app-error.js';
 import { messages } from './messages.js';
 
 let currentLocale: LocaleCode = 'en-US';
@@ -50,10 +51,7 @@ export function setLocale(locale: LocaleCode): void {
 }
 
 export function t(key: string, vars: Record<string, string | number | undefined> = {}): string {
-  const template = messages[currentLocale][key];
-  if (!template) {
-    throw new Error(`Missing i18n message "${key}" for locale ${currentLocale}.`);
-  }
+  const template = messages[currentLocale][key] ?? messages['en-US'][key] ?? key;
   return template.replace(/\{(\w+)\}/g, (_, name: string) => {
     const value = vars[name];
     return value === undefined ? '' : String(value);
@@ -64,5 +62,10 @@ export function normalizeLanguage(value: unknown): LanguageSetting {
   if (value === 'auto' || isLocale(typeof value === 'string' ? value : undefined)) {
     return value as LanguageSetting;
   }
-  throw new Error(`Invalid language setting: ${String(value)}`);
+  throw new AppError({
+    code: 'INVALID_LANGUAGE',
+    message: `Invalid language setting: ${String(value)}.`,
+    suggestion: 'Use one of: auto, zh-CN, en-US.',
+    category: 'validation',
+  });
 }

@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { AppError } from '../errors/app-error.js';
@@ -89,8 +89,14 @@ export class TokenStore {
     const filePath = getAuthFilePath();
     mkdirSync(dirname(filePath), { recursive: true });
     const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-    writeFileSync(tempPath, encrypt(auth), 'utf8');
+    writeFileSync(tempPath, encrypt(auth), { encoding: 'utf8', mode: 0o600 });
     renameSync(tempPath, filePath);
+    try {
+      // Best-effort restrict final file permissions (Windows ignores mode).
+      chmodSync(filePath, 0o600);
+    } catch {
+      // Ignore chmod failures; the temp-file mode is the real gate on POSIX.
+    }
   }
 
   static load(): AuthData | null {

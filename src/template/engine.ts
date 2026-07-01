@@ -1,6 +1,6 @@
 ﻿import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
+import { existsSync, statSync } from 'node:fs';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
@@ -8,6 +8,7 @@ import ejs from 'ejs';
 import { minimatch } from 'minimatch';
 import { simpleGit } from 'simple-git';
 import { AppError } from '../errors/app-error.js';
+import { t } from '../i18n/index.js';
 import { loadTemplateConfig } from './config.js';
 import {
   applyQuestionDefaults,
@@ -131,6 +132,14 @@ async function assertTargetWritable(targetDir: string, overwrite: boolean | unde
   if (!existsSync(targetDir)) {
     return;
   }
+  const stat = statSync(targetDir);
+  if (!stat.isDirectory()) {
+    throw new AppError({
+      code: 'TARGET_NOT_WRITABLE',
+      message: `Target path is not a directory: ${targetDir}`,
+      category: 'validation',
+    });
+  }
   const entries = await readdir(targetDir);
   if (entries.length > 0 && !overwrite) {
     throw new AppError({
@@ -142,14 +151,26 @@ async function assertTargetWritable(targetDir: string, overwrite: boolean | unde
   }
 }
 
+function resolveTemplateRoot(tempDir: string, subdir?: string): string {
+  const normalizedTemp = resolve(tempDir);
+  const rootDir = resolve(normalizedTemp, subdir || '.');
+  // Ensure the resolved root stays inside the temp clone directory.
+  if (!rootDir.startsWith(normalizedTemp + sep) && rootDir !== normalizedTemp) {
+    throw new AppError({
+      code: 'TEMPLATE_SUBDIR_UNSAFE',
+      message: t('create.subdirUnsafe', { subdir: subdir || '' }),
+      suggestion: 'Use a subdirectory path that stays within the template repository.',
+      category: 'validation',
+    });
+  }
+  return rootDir;
+}
+
 async function walkFiles(rootDir: string): Promise<string[]> {
   const result: string[] = [];
   async function walk(dir: string): Promise<void> {
     const entries = await readdir(dir, { withFileTypes: true });
     for (const entry of entries) {
-      if (entry.name === '.git') {
-        continue;
-      }
       const fullPath = join(dir, entry.name);
       if (entry.isDirectory()) {
         await walk(fullPath);
@@ -205,20 +226,59 @@ async function copyTemplateFiles(input: {
   return { filesWritten, filesSkipped };
 }
 
-async function runShell(script: string, cwd: string, env?: Record<string, string>): Promise<void> {
+const DEFAULT_HOOK_TIMEOUT_MS = 5 * 60 * 1000;
+
+async function runShell(
+  script: string,
+  cwd: string,
+  env?: Record<string, string>,
+  timeoutMs: number = DEFAULT_HOOK_TIMEOUT_MS,
+): Promise<void> {
   await new Promise<void>((resolvePromise, reject) => {
     const child = spawn(script, {
       cwd,
       shell: true,
-      stdio: 'inherit',
+      stdio: 'pipe',
       env: { ...process.env, ...env },
     });
-    child.once('error', reject);
+
+    let stdout = '';
+    let stderr = '';
+    child.stdout?.on('data', (chunk) => {
+      process.stdout.write(chunk);
+      stdout += chunk;
+    });
+    child.stderr?.on('data', (chunk) => {
+      process.stderr.write(chunk);
+      stderr += chunk;
+    });
+
+    const timeout = setTimeout(() => {
+      child.kill('SIGTERM');
+      // Give the process a short grace period, then force kill.
+      setTimeout(() => {
+        if (!child.killed) {
+          child.kill('SIGKILL');
+        }
+      }, 5000).unref();
+      reject(new AppError({
+        code: 'HOOK_TIMEOUT',
+        message: t('hook.timeout', { timeout: Math.round(timeoutMs / 1000) }),
+        category: 'system',
+      }));
+    }, timeoutMs);
+
+    child.once('error', (err) => {
+      clearTimeout(timeout);
+      reject(err);
+    });
     child.once('exit', (code) => {
+      clearTimeout(timeout);
       if (code === 0) {
         resolvePromise();
       } else {
-        reject(new Error(`Hook exited with code ${code ?? 'unknown'}.`));
+        const output = (stderr || stdout).trim();
+        reject(new Error(`Hook exited with code ${code ?? 'unknown'}.${output ? `\n${output}` : ''}`));
       }
     });
   });
@@ -280,7 +340,7 @@ export class TemplateEngine {
       }
       await git.clone(options.gitUrl, tempDir, cloneArgs);
 
-      const rootDir = join(tempDir, options.subdir || '');
+      const rootDir = resolveTemplateRoot(tempDir, options.subdir);
       const warnings: string[] = [];
       const loaded = options.templateConfig
         ? { config: options.templateConfig, fileName: undefined }

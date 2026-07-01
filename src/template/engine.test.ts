@@ -323,3 +323,91 @@ test('TemplateEngine skips interactive prompts when variables are disabled', asy
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+
+test('TemplateEngine rejects subdir that escapes the repository', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'ag-core1-unsafe-subdir-'));
+  const repo = join(dir, 'repo');
+  const target = join(dir, 'target');
+  const secretFile = join(dir, 'secret.txt');
+  try {
+    await git(dir, ['init', 'repo']);
+    await writeFile(secretFile, ' sensitive\n', 'utf8');
+    await writeFile(join(repo, '.agilebuilder.config.yaml'), [
+      'version: "1.0"',
+      '',
+    ].join('\n'), 'utf8');
+    await writeFile(join(repo, 'README.md'), 'hello\n', 'utf8');
+    await git(repo, ['add', '.']);
+    await git(repo, ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-m', 'init']);
+
+    await assert.rejects(
+      () => new TemplateEngine().generateFromGit({
+        gitUrl: repo,
+        targetDir: target,
+        subdir: '../',
+      }),
+      (error) => error instanceof Error && error.message.includes('unsafe'),
+    );
+
+    // Ensure the secret file was not copied or modified.
+    assert.equal(await readFile(secretFile, 'utf8'), ' sensitive\n');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+
+test('TemplateEngine keeps .git directory when keepGit is true', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'ag-core1-keep-git-'));
+  const repo = join(dir, 'repo');
+  const target = join(dir, 'target');
+  try {
+    await git(dir, ['init', 'repo']);
+    await writeFile(join(repo, '.agilebuilder.config.yaml'), [
+      'version: "1.0"',
+      '',
+    ].join('\n'), 'utf8');
+    await writeFile(join(repo, 'README.md'), 'hello\n', 'utf8');
+    await git(repo, ['add', '.']);
+    await git(repo, ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-m', 'init']);
+
+    await new TemplateEngine().generateFromGit({
+      gitUrl: repo,
+      targetDir: target,
+      keepGit: true,
+    });
+
+    const head = join(target, '.git', 'HEAD');
+    assert.ok(existsSync(head), 'Expected .git/HEAD to be copied when keepGit is true');
+    assert.ok(existsSync(join(target, 'README.md')));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('TemplateEngine removes .git directory by default', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'ag-core1-no-git-'));
+  const repo = join(dir, 'repo');
+  const target = join(dir, 'target');
+  try {
+    await git(dir, ['init', 'repo']);
+    await writeFile(join(repo, '.agilebuilder.config.yaml'), [
+      'version: "1.0"',
+      '',
+    ].join('\n'), 'utf8');
+    await writeFile(join(repo, 'file.txt'), 'data\n', 'utf8');
+    await git(repo, ['add', '.']);
+    await git(repo, ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-m', 'init']);
+
+    await new TemplateEngine().generateFromGit({
+      gitUrl: repo,
+      targetDir: target,
+    });
+
+    assert.ok(!existsSync(join(target, '.git')), 'Expected .git to be removed by default');
+    assert.ok(existsSync(join(target, 'file.txt')));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

@@ -17,6 +17,7 @@ outputs/
 logs/
 case-temp/
 case-temp2/
+opensource/
 
 # TypeScript compiled output in src directory
 src/**/*.js

@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { AppError, toAppError } from '../errors/app-error.js';
+import { toAppError } from '../errors/app-error.js';
 import { t } from '../i18n/index.js';
 
 export interface OutputOptions {
@@ -58,8 +58,4 @@ export function printError(error: unknown, options: OutputOptions = {}): void {
   if (appError.suggestion) {
     console.error(chalk.dim(appError.suggestion));
   }
-}
-
-export function getExitCode(error: unknown): number {
-  return error instanceof AppError ? error.exitCode : 1;
 }

@@ -5,7 +5,7 @@ export function getDataDir(): string {
   const dataDirOverride = process.env.AGILEBUILDER_CORE1_DATA_DIR;
   return dataDirOverride
     ? resolve(dataDirOverride)
-    : join(homedir(), '.agilebuilder', 'core');
+    : join(homedir(), '.agilebuilder', 'v2');
 }
 
 export function getConfigFilePath(): string {
@@ -18,8 +18,4 @@ export function getCurrentSpaceFilePath(): string {
 
 export function getLocalResourcesFilePath(): string {
   return join(getDataDir(), 'resources', 'local.json');
-}
-
-export function getLogsDir(): string {
-  return join(getDataDir(), 'logs');
 }

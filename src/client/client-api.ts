@@ -43,7 +43,7 @@ export interface CloudResourceListItem {
   spaceId: string;
   spaceName?: string;
   name: string;
-  type: 'template' | 'pipeline' | 'doc';
+  type: 'template' | 'doc';
   description?: string;
   tags?: string[];
   nodeId?: string;
@@ -158,16 +158,8 @@ export class ClientApi {
     return ClientHttp.get<UserInfo>('/api/client/user/profile', { token });
   }
 
-  static getUserSpaces(token: string): Promise<CloudSpace[]> {
-    return ClientHttp.get<CloudSpace[]>('/api/client/user/spaces', { token });
-  }
-
   static getLicense(token: string): Promise<LicenseResponse> {
     return ClientHttp.get<LicenseResponse>('/api/client/license', { token });
-  }
-
-  static refreshLicense(token: string): Promise<LicenseResponse> {
-    return ClientHttp.post<LicenseResponse>('/api/client/license/refresh', undefined, { token });
   }
 
   static searchResources(

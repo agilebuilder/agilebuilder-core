@@ -19,8 +19,9 @@ export const toolSchemas = [
     description: 'List resources in the current AgileBuilder workspace.',
     inputSchema: {
       type: 'object',
+      additionalProperties: false,
       properties: {
-        type: { type: 'string', enum: ['template', 'doc'] },
+        type: { type: 'string', enum: ['template', 'doc'], description: 'Filter by resource type' },
       },
     },
   },
@@ -29,9 +30,10 @@ export const toolSchemas = [
     description: 'Search resources in the current AgileBuilder workspace.',
     inputSchema: {
       type: 'object',
+      additionalProperties: false,
       properties: {
-        keyword: { type: 'string' },
-        type: { type: 'string', enum: ['template', 'doc'] },
+        keyword: { type: 'string', description: 'Search keyword' },
+        type: { type: 'string', enum: ['template', 'doc'], description: 'Filter by resource type' },
       },
     },
   },
@@ -40,8 +42,9 @@ export const toolSchemas = [
     description: 'Get one resource by ID from the current AgileBuilder workspace.',
     inputSchema: {
       type: 'object',
+      additionalProperties: false,
       properties: {
-        resourceId: { type: 'string' },
+        resourceId: { type: 'string', description: 'Resource ID' },
       },
       required: ['resourceId'],
     },
@@ -51,16 +54,17 @@ export const toolSchemas = [
     description: 'Create a project from a resource ID or direct Git URL.',
     inputSchema: {
       type: 'object',
+      additionalProperties: false,
       properties: {
-        resourceId: { type: 'string' },
-        gitUrl: { type: 'string' },
-        branch: { type: 'string' },
-        subdir: { type: 'string' },
-        targetPath: { type: 'string' },
-        variables: { type: 'object' },
-        overwrite: { type: 'boolean' },
-        keepGit: { type: 'boolean' },
-        allowHooks: { type: 'boolean' },
+        resourceId: { type: 'string', description: 'Resource ID (alternative to gitUrl)' },
+        gitUrl: { type: 'string', description: 'Git URL (alternative to resourceId)' },
+        branch: { type: 'string', description: 'Git branch' },
+        subdir: { type: 'string', description: 'Template subdirectory within the Git repository' },
+        targetPath: { type: 'string', description: 'Local directory where the project will be generated' },
+        variables: { type: 'object', description: 'Template variables as a JSON object' },
+        overwrite: { type: 'boolean', description: 'Allow writing into a non-empty target directory' },
+        keepGit: { type: 'boolean', description: 'Keep the .git directory from the template' },
+        allowHooks: { type: 'boolean', description: 'Allow template hooks to run' },
       },
       required: ['targetPath'],
     },
@@ -91,6 +95,20 @@ export async function getResource(args: Record<string, unknown>) {
   return { ok: true, data: resource };
 }
 
+function validateVariables(value: unknown): Record<string, unknown> {
+  if (value === undefined || value === null) {
+    return {};
+  }
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    throw new AppError({
+      code: 'INVALID_VARIABLES',
+      message: 'variables must be a JSON object, not an array or primitive.',
+      category: 'validation',
+    });
+  }
+  return value as Record<string, unknown>;
+}
+
 export async function createProject(args: Record<string, unknown>) {
   const targetPath = String(args.targetPath || '');
   if (!targetPath) {
@@ -101,9 +119,7 @@ export async function createProject(args: Record<string, unknown>) {
   let branch = typeof args.branch === 'string' ? args.branch : undefined;
   let subdir = typeof args.subdir === 'string' ? args.subdir : undefined;
   let templateConfig: TemplateConfig | undefined;
-  const variables = args.variables && typeof args.variables === 'object' && !Array.isArray(args.variables)
-    ? args.variables as Record<string, unknown>
-    : {};
+  const variables = validateVariables(args.variables);
 
   if (!gitUrl) {
     const resourceId = String(args.resourceId || '');

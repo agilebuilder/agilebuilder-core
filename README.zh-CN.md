@@ -162,7 +162,7 @@ ag config set backend.profile global
 默认数据目录：
 
 ```text
-~/.agilebuilder/core
+~/.agilebuilder/v2
 ```
 
 主要文件：

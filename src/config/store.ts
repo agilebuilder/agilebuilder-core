@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { getConfigFilePath } from '../shared/paths.js';
-import { normalizeLanguage } from '../i18n/index.js';
+import { normalizeLanguage, t } from '../i18n/index.js';
 import type { LanguageSetting } from '../shared/constants.js';
 
 export type BackendProfile = 'auto' | 'china' | 'global';
@@ -110,7 +110,13 @@ export class ConfigStore {
       return cloneDefaultConfig();
     }
 
-    return normalizeConfig(JSON.parse(readFileSync(filePath, 'utf8')));
+    try {
+      return normalizeConfig(JSON.parse(readFileSync(filePath, 'utf8')));
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      console.warn(t('config.loadFailed', { reason }));
+      return cloneDefaultConfig();
+    }
   }
 
   static save(config: CliConfig): void {

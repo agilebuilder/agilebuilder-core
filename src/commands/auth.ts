@@ -73,12 +73,12 @@ export function createAuthCommand(): Command {
 
   command
     .command('require-token')
-    .description('Check token availability')
+    .description(t('auth.requireToken.description'))
     .option('--json', 'Output JSON')
     .action(async (options: JsonOption) => {
       const token = await TokenStore.getValidToken();
       if (!token) {
-        throw new AppError({ code: 'AUTH_TOKEN_UNAVAILABLE', message: 'No valid token is available.', category: 'auth' });
+        throw new AppError({ code: 'AUTH_TOKEN_UNAVAILABLE', message: t('auth.noValidToken'), category: 'auth' });
       }
       writeSuccess({ available: true }, options, renderTokenAvailable);
     });
@@ -86,12 +86,12 @@ export function createAuthCommand(): Command {
   // for GUI Sidecar
   command
     .command('token', { hidden: true })
-    .description('Get current valid token (for internal use)')
+    .description(t('auth.token.description'))
     .option('--json', 'Output JSON')
     .action(async (options: JsonOption) => {
       const token = await TokenStore.getValidToken();
       if (!token) {
-        throw new AppError({ code: 'AUTH_TOKEN_UNAVAILABLE', message: 'No valid token is available.', category: 'auth' });
+        throw new AppError({ code: 'AUTH_TOKEN_UNAVAILABLE', message: t('auth.noValidToken'), category: 'auth' });
       }
       writeSuccess({ token }, options);
     });

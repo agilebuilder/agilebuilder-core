@@ -28,9 +28,35 @@ interface CreateOptions {
 }
 
 async function loadVariables(options: CreateOptions): Promise<Record<string, unknown>> {
-  const fromFile = options.vars
-    ? parseVarsJson(JSON.parse(await readFile(options.vars, 'utf8')))
-    : {};
+  let fromFile: Record<string, unknown> = {};
+  if (options.vars) {
+    let raw: string;
+    try {
+      raw = await readFile(options.vars, 'utf8');
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      throw new AppError({
+        code: 'TEMPLATE_VARS_FILE_INVALID',
+        message: t('create.varsFileReadFailed', { path: options.vars }),
+        suggestion: code === 'ENOENT'
+          ? 'Check that the file path is correct.'
+          : 'Check that the file is readable.',
+        category: 'validation',
+      });
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new AppError({
+        code: 'TEMPLATE_VARS_FILE_INVALID',
+        message: t('create.varsFileInvalidJson', { path: options.vars }),
+        suggestion: 'The --vars file must contain a single JSON object.',
+        category: 'validation',
+      });
+    }
+    fromFile = parseVarsJson(parsed);
+  }
   return {
     ...fromFile,
     ...parseVarAssignments(options.var),

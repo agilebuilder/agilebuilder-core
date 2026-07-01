@@ -162,7 +162,7 @@ Language detection also reads `AGILEBUILDER_LANG`, `LC_ALL`, `LC_MESSAGES`, and 
 By default, CLI data is stored under:
 
 ```text
-~/.agilebuilder/core
+~/.agilebuilder/v2
 ```
 
 Important files:
