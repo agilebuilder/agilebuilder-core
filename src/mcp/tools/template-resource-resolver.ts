@@ -8,7 +8,6 @@ import { cloudResourceToGenerateOptions } from '../../template/cloud-resource.js
 import type { MCPContext } from '../context.js';
 import type { TemplateConfig } from '../../template/config.js';
 
-const localRepository = new LocalResourceRepository();
 const cloudRepository = new CloudResourceRepository();
 
 export interface ResolvedTemplate {
@@ -26,6 +25,7 @@ export async function resolveTemplateResourceRef(
   resourceId: string,
 ): Promise<ResolvedTemplate> {
   if (context.isLocalSpace) {
+    const localRepository = new LocalResourceRepository();
     const local = await localRepository.require(resourceId);
     if (local.type !== 'template') {
       throw new AppError({

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { promptForMissingVariables } from './variables.js';
+import { promptForMissingVariables, parseVarsJson, parseVarAssignments } from './variables.js';
 import type { PromptFunctions } from './variables.js';
 import type { TemplateQuestion } from './config.js';
 
@@ -176,4 +176,77 @@ test('promptForMissingVariables prompts for multiple missing variables', async (
     }),
   );
   assert.deepEqual(result, { projectName: 'demo-app', ownerName: 'Team' });
+});
+
+test('parseVarsJson returns empty object for null or undefined', () => {
+  assert.deepEqual(parseVarsJson(null), {});
+  assert.deepEqual(parseVarsJson(undefined), {});
+});
+
+test('parseVarsJson returns object as-is', () => {
+  const value = { projectName: 'demo', count: 42, enabled: true };
+  assert.deepEqual(parseVarsJson(value), value);
+});
+
+test('parseVarsJson throws TEMPLATE_VARS_INVALID for arrays', () => {
+  assert.throws(
+    () => parseVarsJson([]),
+    (error) => error instanceof Error && 'code' in error && error.code === 'TEMPLATE_VARS_INVALID',
+  );
+});
+
+test('parseVarsJson throws TEMPLATE_VARS_INVALID for non-object values', () => {
+  assert.throws(
+    () => parseVarsJson('string'),
+    (error) => error instanceof Error && 'code' in error && error.code === 'TEMPLATE_VARS_INVALID',
+  );
+  assert.throws(
+    () => parseVarsJson(123),
+    (error) => error instanceof Error && 'code' in error && error.code === 'TEMPLATE_VARS_INVALID',
+  );
+});
+
+test('parseVarAssignments parses scalar values', () => {
+  assert.deepEqual(parseVarAssignments(['flag=true', 'disabled=false', 'empty=null', 'count=42', 'pi=3.14', 'negative=-7', 'name=demo']), {
+    flag: true,
+    disabled: false,
+    empty: null,
+    count: 42,
+    pi: 3.14,
+    negative: -7,
+    name: 'demo',
+  });
+});
+
+test('parseVarAssignments keeps literal string for non-scalar values', () => {
+  assert.deepEqual(parseVarAssignments(['value=hello world', 'mixed=123abc']), {
+    value: 'hello world',
+    mixed: '123abc',
+  });
+});
+
+test('parseVarAssignments handles empty value', () => {
+  assert.deepEqual(parseVarAssignments(['key=']), { key: '' });
+});
+
+test('parseVarAssignments throws TEMPLATE_VAR_INVALID for missing equals', () => {
+  assert.throws(
+    () => parseVarAssignments(['noequals']),
+    (error) => error instanceof Error && 'code' in error && error.code === 'TEMPLATE_VAR_INVALID',
+  );
+});
+
+test('parseVarAssignments throws TEMPLATE_VAR_INVALID for empty key', () => {
+  assert.throws(
+    () => parseVarAssignments(['=value']),
+    (error) => error instanceof Error && 'code' in error && error.code === 'TEMPLATE_VAR_INVALID',
+  );
+});
+
+test('parseVarAssignments returns empty object for undefined input', () => {
+  assert.deepEqual(parseVarAssignments(undefined), {});
+});
+
+test('parseVarAssignments handles multiple assignments', () => {
+  assert.deepEqual(parseVarAssignments(['a=1', 'b=2', 'c=true']), { a: 1, b: 2, c: true });
 });

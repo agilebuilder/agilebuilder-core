@@ -185,7 +185,8 @@ export class LocalResourceRepository {
   }
 
   private async load(): Promise<LocalResourceStoreData> {
-    return normalizeStore(await readJsonFile(this.filePath, EMPTY_STORE));
+    const raw = await readJsonFile(this.filePath, EMPTY_STORE);
+    return normalizeStore({ ...raw, items: [...raw.items] });
   }
 
   private async save(store: LocalResourceStoreData): Promise<void> {

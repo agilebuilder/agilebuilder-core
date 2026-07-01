@@ -7,8 +7,9 @@ import { renderCreateResult } from '../output/cli-renderers.js';
 import { LocalResourceRepository } from '../resources/local-repository.js';
 import { TemplateEngine } from '../template/engine.js';
 import { cloudResourceToGenerateOptions } from '../template/cloud-resource.js';
-import { parseVarAssignments, parseVarsJson } from '../template/variables.js';
+import { parseVarAssignments } from '../template/variables.js';
 import { WorkspaceStore } from '../workspace/store.js';
+import { ConfigStore } from '../config/store.js';
 import { LOCAL_SPACE_ID } from '../shared/constants.js';
 import { CloudResourceRepository } from '../resources/cloud-repository.js';
 import type { TemplateConfig } from '../template/config.js';
@@ -55,7 +56,15 @@ async function loadVariables(options: CreateOptions): Promise<Record<string, unk
         category: 'validation',
       });
     }
-    fromFile = parseVarsJson(parsed);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new AppError({
+        code: 'TEMPLATE_VARS_FILE_INVALID',
+        message: t('create.varsFileInvalidJson', { path: options.vars }),
+        suggestion: 'The --vars file must contain a single JSON object.',
+        category: 'validation',
+      });
+    }
+    fromFile = parsed as Record<string, unknown>;
   }
   return {
     ...fromFile,
@@ -139,6 +148,8 @@ export function createCreateCommand(): Command {
         }
       }
 
+      const config = ConfigStore.load();
+      const allowHooks = options.allowHooks ?? config.template.allowHooksDefault;
       const result = await engine.generateFromGit({
         gitUrl,
         branch,
@@ -148,7 +159,7 @@ export function createCreateCommand(): Command {
         templateConfig,
         overwrite: options.overwrite,
         keepGit: options.keepGit,
-        allowHooks: options.allowHooks,
+        allowHooks,
         interactive: options.interactive,
       });
 

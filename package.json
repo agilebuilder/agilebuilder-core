@@ -22,6 +22,7 @@
     "!dist/**/*.test.d.ts",
     "!dist/**/*.test.js.map",
     "!dist/**/*.test.d.ts.map",
+    "!dist/test-helpers/**",
     "bin",
     "docs",
     "README.md",
@@ -38,6 +39,8 @@
     "dev": "tsx src/cli/index.ts",
     "start": "node dist/cli/index.js",
     "test": "npm run build && node --test dist/**/*.test.js",
+    "test:unit": "node --import tsx --test src/**/*.test.ts",
+    "test:ci": "npm run typecheck && npm run test",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [

@@ -57,7 +57,7 @@ export function createSpaceCommand(): Command {
       const cloud = license?.data.spaces.find((space) => space.id === current.id);
       writeSuccess(cloud
         ? { ...cloudSpaceToWorkspace(cloud), current: true, selectedAt: current.selectedAt }
-        : { ...local, current: current.id === local.id, selectedAt: current.selectedAt }, options, renderWorkspaceCurrent);
+        : { ...local, current: true, selectedAt: current.selectedAt }, options, renderWorkspaceCurrent);
     });
 
   command

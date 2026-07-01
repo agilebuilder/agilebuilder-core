@@ -348,7 +348,17 @@ export class TemplateEngine {
       if (!options.templateConfig && !loaded.fileName) {
         warnings.push('No AgileBuilder template config file found; continuing with default config.');
       }
-      const sourceDir = join(rootDir, loaded.config.source?.subdir || '.');
+      const sourceSubdir = loaded.config.source?.subdir;
+      const sourceDir = sourceSubdir ? resolve(rootDir, sourceSubdir) : rootDir;
+      const normalizedTemp = resolve(tempDir);
+      if (sourceDir !== normalizedTemp && !sourceDir.startsWith(normalizedTemp + sep)) {
+        throw new AppError({
+          code: 'TEMPLATE_SUBDIR_UNSAFE',
+          message: t('create.subdirUnsafe', { subdir: sourceSubdir || '' }),
+          suggestion: 'Use a subdirectory path that stays within the template repository.',
+          category: 'validation',
+        });
+      }
       const variables = applyQuestionDefaults(
         loaded.config.variables.inquirerQuestions,
         options.variables || {},
