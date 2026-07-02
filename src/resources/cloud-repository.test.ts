@@ -33,7 +33,7 @@ function licenseWithPlan(planType: 'free' | 'trial' | 'pro'): LicenseResponse {
         id: 'user',
         username: 'user',
         displayName: 'User',
-        hasPro: true,
+        hasPro: planType !== 'free',
       },
       spaces: [
         {
@@ -81,6 +81,22 @@ test('CloudResourceRepository.addTemplate blocks free workspaces', async () => {
 
 test('CloudResourceRepository.addTemplate allows pro workspaces', async () => {
   LicenseStore.getOrRefresh = async () => licenseWithPlan('pro');
+  TokenStore.getValidToken = async () => 'token';
+  let called = false;
+  ClientApi.createResource = async () => {
+    called = true;
+    return { id: 'r1' } as any;
+  };
+
+  const repo = new CloudResourceRepository();
+  await repo.addTemplate('space-1', { name: 'Template', gitUrl: 'https://example.com/t.git' });
+  assert.equal(called, true);
+});
+
+test('CloudResourceRepository.addTemplate allows free workspaces when user has Pro', async () => {
+  const multiSpaceLicense = licenseWithPlan('free');
+  multiSpaceLicense.data.user.hasPro = true;
+  LicenseStore.getOrRefresh = async () => multiSpaceLicense;
   TokenStore.getValidToken = async () => 'token';
   let called = false;
   ClientApi.createResource = async () => {

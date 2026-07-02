@@ -28,8 +28,10 @@ function restoreClientApi() {
 
 test('login --api-key succeeds and persists the token', async () => {
   await withIsolatedDataDir(async () => {
-    const original = ClientApi.getUserProfile;
+    const originalGetUserProfile = ClientApi.getUserProfile;
+    const originalRegisterDevice = ClientApi.registerDevice;
     ClientApi.getUserProfile = async () => ({ id: 'u1', name: 'Tester', email: 'tester@example.com' });
+    ClientApi.registerDevice = async () => ({ isNew: true });
     const { logs, restore } = captureLogs();
     try {
       const { createLoginCommand } = await import('./auth.js');
@@ -42,7 +44,8 @@ test('login --api-key succeeds and persists the token', async () => {
       assert.equal(TokenStore.getUser()?.email, 'tester@example.com');
     } finally {
       restore();
-      ClientApi.getUserProfile = original;
+      ClientApi.getUserProfile = originalGetUserProfile;
+      ClientApi.registerDevice = originalRegisterDevice;
       TokenStore.clear();
     }
   });
@@ -50,8 +53,10 @@ test('login --api-key succeeds and persists the token', async () => {
 
 test('login --api-key --json returns structured user data', async () => {
   await withIsolatedDataDir(async () => {
-    const original = ClientApi.getUserProfile;
+    const originalGetUserProfile = ClientApi.getUserProfile;
+    const originalRegisterDevice = ClientApi.registerDevice;
     ClientApi.getUserProfile = async () => ({ id: 'u2', name: 'JSON Tester' });
+    ClientApi.registerDevice = async () => ({ isNew: true });
     const { logs, restore } = captureLogs();
     try {
       const { createLoginCommand } = await import('./auth.js');
@@ -65,9 +70,21 @@ test('login --api-key --json returns structured user data', async () => {
       assert.equal(await TokenStore.getValidToken(), 'ak-json');
     } finally {
       restore();
-      ClientApi.getUserProfile = original;
+      ClientApi.getUserProfile = originalGetUserProfile;
+      ClientApi.registerDevice = originalRegisterDevice;
       TokenStore.clear();
     }
+  });
+});
+
+test('login --api-key "" rejects empty key', async () => {
+  await withIsolatedDataDir(async () => {
+    const { createLoginCommand } = await import('./auth.js');
+    const cmd = createLoginCommand();
+    await assert.rejects(
+      cmd.parseAsync(['node', 'ag', '--api-key', '']),
+      (err: unknown) => err instanceof AppError && (err as AppError).code === 'API_KEY_REQUIRED',
+    );
   });
 });
 

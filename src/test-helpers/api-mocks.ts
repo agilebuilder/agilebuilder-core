@@ -21,7 +21,7 @@ export function licenseWithPlan(
         id: 'u1',
         username: 'tester',
         displayName: 'Tester',
-        hasPro: true,
+        hasPro: planType !== 'free',
       },
       spaces: spaceIds.map((id) => ({
         id,

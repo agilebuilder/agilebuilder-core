@@ -21,6 +21,7 @@ interface JsonOption {
 
 interface ListOptions extends JsonOption {
   type?: ResourceType;
+  spaceId?: string;
 }
 
 interface AddTemplateOptions extends JsonOption {
@@ -103,17 +104,18 @@ export function createResCommand(): Command {
     .alias('ls')
     .description(t('res.list.description'))
     .option('--type <type>', 'Filter by resource type')
+    .option('--space-id <id>', 'Target workspace ID (cloud only)')
     .option('--json', 'Output JSON')
     .action(async (options: ListOptions) => {
       const type = parseResourceType(options.type);
-      const current = WorkspaceStore.getCurrent();
-      if (current.id === LOCAL_SPACE_ID) {
+      const target = resolveTargetWorkspace(options.spaceId);
+      if (target === LOCAL_SPACE_ID) {
         const items = await repository.list({ type });
-        writeSuccess({ workspaceId: current.id, items, total: items.length }, options, renderResourceList);
+        writeSuccess({ workspaceId: target, items, total: items.length }, options, renderResourceList);
         return;
       }
-      const result = await cloudRepository.list({ spaceId: current.id, type });
-      writeSuccess({ workspaceId: current.id, ...result }, options, renderResourceList);
+      const result = await cloudRepository.list({ spaceId: target, type });
+      writeSuccess({ workspaceId: target, ...result }, options, renderResourceList);
     });
 
   command
@@ -121,17 +123,18 @@ export function createResCommand(): Command {
     .argument('<keyword>')
     .description(t('res.search.description'))
     .option('--type <type>', 'Filter by resource type')
+    .option('--space-id <id>', 'Target workspace ID (cloud only)')
     .option('--json', 'Output JSON')
     .action(async (keyword: string, options: ListOptions) => {
       const type = parseResourceType(options.type);
-      const current = WorkspaceStore.getCurrent();
-      if (current.id === LOCAL_SPACE_ID) {
+      const target = resolveTargetWorkspace(options.spaceId);
+      if (target === LOCAL_SPACE_ID) {
         const items = await repository.list({ type, keyword });
-        writeSuccess({ workspaceId: current.id, items, total: items.length }, options, renderResourceList);
+        writeSuccess({ workspaceId: target, items, total: items.length }, options, renderResourceList);
         return;
       }
-      const result = await cloudRepository.list({ spaceId: current.id, type, keyword });
-      writeSuccess({ workspaceId: current.id, ...result }, options, renderResourceList);
+      const result = await cloudRepository.list({ spaceId: target, type, keyword });
+      writeSuccess({ workspaceId: target, ...result }, options, renderResourceList);
     });
 
   command

@@ -76,6 +76,19 @@ function normalizeFilePatternMode(value: unknown): FilePatternMode {
   return value === 'include' || value === 'exclude' || value === 'all' ? value : 'all';
 }
 
+function normalizeDelimiter(value: unknown): string {
+  if (typeof value !== 'string' || value.length === 0) {
+    return '%';
+  }
+  // EJS delimiter is the character inside the angle brackets. Users often
+  // write "<%" when they mean the default "<% %>" tag, so normalize it.
+  const trimmed = value.trim();
+  if (trimmed === '<%' || trimmed === '%>') {
+    return '%';
+  }
+  return trimmed;
+}
+
 function normalizeQuestions(value: unknown): TemplateQuestion[] {
   if (!Array.isArray(value)) {
     return [];
@@ -146,9 +159,7 @@ export function normalizeTemplateConfig(value: unknown): TemplateConfig {
           ? filePatterns.patterns.filter((item): item is string => typeof item === 'string')
           : ['**/*'],
       },
-      delimiter: typeof variables.delimiter === 'string' && variables.delimiter.length > 0
-        ? variables.delimiter
-        : '%',
+      delimiter: normalizeDelimiter(variables.delimiter),
       inquirerQuestions: normalizeQuestions(variables.inquirerQuestions),
     },
     hooks: normalizeHooks(value.hooks),

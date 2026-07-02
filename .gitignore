@@ -26,3 +26,4 @@ src/**/*.js.map
 src/**/*.d.ts.map
 
 .opensource-sync.json
+docs

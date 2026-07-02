@@ -25,6 +25,13 @@ AgileBuilder CLI 是一个基于 Git 模板的项目脚手架与开发资源管�
 npm install -g agilebuilder
 ```
 
+无需安装直接运行（适合 CI 与 AI 智能体）：
+
+```bash
+npx agilebuilder --help
+npx agilebuilder@latest create --git-url <url> --target ./app
+```
+
 从源码运行：
 
 ```bash
@@ -134,8 +141,8 @@ CLI 通过 `backend.profile` 选择后端端点。
 | 值 | 行为 |
 | --- | --- |
 | `auto` | 当 locale 或时区显示为中国大陆环境时使用中国区，否则使用全球区。 |
-| `china` | 使用 `agilebuilder.cn` 端点。 |
-| `global` | 使用 `agilebuilder.net` 端点。 |
+| `china` | 使用 `*.agilebuilder.cn` 端点（`www`、`api-auth`、`api-app`）。 |
+| `global` | 使用 `*.agilebuilder.net` 端点（`www`、`api-auth`、`api-app`）。 |
 
 配置命令：
 
@@ -153,7 +160,7 @@ ag config set backend.profile global
 | `language` | `auto`、`zh-CN`、`en-US` |
 | `template.allowHooksDefault` | `true`、`false` |
 
-注意：`template.allowHooksDefault` 当前会被保存到配置文件中，但 `create` 命令实际只有在传入 `--allow-hooks` 时才会执行 Hook。
+注意：当未传入 `--allow-hooks` 时，`create` 会回退到配置文件中的 `template.allowHooksDefault`。若将其设为 `true`，则 Hook 默认执行；显式传入 `--allow-hooks` 始终优先级最高。
 
 当 `language` 为 `auto` 时，语言检测还会读取 `AGILEBUILDER_LANG`、`LC_ALL`、`LC_MESSAGES` 和 `LANG`。
 
@@ -306,9 +313,9 @@ ag create <resource-id> --target ./app
 | `--vars <path>` | 否 | JSON 对象文件，作为模板变量。 |
 | `--var <key=value...>` | 否 | 一个或多个标量变量赋值。 |
 | `--overwrite` | 否 | 允许写入非空目标目录。 |
-| `--keep-git` | 否 | 命令接受该选项，但当前文件遍历逻辑仍会跳过 `.git` 目录。 |
-| `--allow-hooks` | 否 | 允许执行支持的模板 Hook。 |
-| `--interactive` | 否 | 交互式地录入缺失的模板变量。 |
+| `--keep-git` | 否 | 保留模板仓库的 `.git` 目录；默认会跳过 `.git`。 |
+| `--allow-hooks` | 否 | 允许执行支持的模板 Hook。优先级高于 `template.allowHooksDefault`。 |
+| `--interactive` | 否 | 交互式地录入缺失的模板变量。需要在 TTY 中运行，且不能与 `--json` 同时使用。 |
 | `--json` | 否 | 输出 JSON。 |
 
 目标目录安全规则：
@@ -317,10 +324,10 @@ ag create <resource-id> --target ./app
 - 已存在且非空的目录必须显式传入 `--overwrite`。
 - 目标目录不存在时会自动创建。
 
-变量优先级：
+变量优先级（后覆盖前）：
 
-1. 重复传入的 `--var key=value`。
-2. `--vars <path>` 中的变量。
+1. `--vars <path>` 中的变量。
+2. 重复传入的 `--var key=value`。
 3. 使用 `--interactive` 时交互式录入的变量，仅在变量仍缺失时应用。
 4. 模板问题中的默认值，仅在变量仍缺失时应用。
 
@@ -404,7 +411,7 @@ Hook 规则：
 - 当前只会处理 `after_write`。
 - 当前只支持执行 `scriptType: shell`。
 - Hook 在目标目录中执行。
-- 只有传入 `--allow-hooks` 时才会执行 Hook。
+- 传入 `--allow-hooks` 或配置 `template.allowHooksDefault: true` 时执行 Hook。
 - `errorHandling: stop` 会在 Hook 失败时中止生成。
 - `errorHandling: warn` 和 `continue` 会记录为跳过并继续执行。
 
@@ -531,10 +538,11 @@ ag [options] [command]
 | 命令 | 说明 |
 | --- | --- |
 | `config` | 管理 CLI 配置。 |
-| `login` | 使用 OAuth 或 API Key 登录。 |
-| `logout` | 清除本地认证。 |
+| `login` | 使用 OAuth 或 API Key 登录。支持 `--json`。 |
+| `logout` | 清除本地认证。支持 `--json`。 |
 | `auth status` | 显示认证状态。 |
 | `auth require-token` | 要求当前存在可用 token，否则失败。 |
+| `auth token` | 返回当前 token（隐藏命令，主要供 GUI Sidecar 使用）。 |
 | `space list` / `space ls` | 列出本地和 Cloud 工作空间。 |
 | `space current` | 显示当前工作空间。 |
 | `space use <workspace>` | 选择 `local` 或 Cloud 工作空间 ID。 |
@@ -549,6 +557,7 @@ ag [options] [command]
 | `device list` / `device ls` | 列出已注册设备。 |
 | `device revoke <device-id>` | 撤销单个设备。 |
 | `device revoke-all` | 撤销所有其他设备。 |
+| `mcp-debug-resources` | 输出 MCP 可见的资源与模板（隐藏调试命令）。 |
 
 ## 开发
 
@@ -565,9 +574,7 @@ npm run dev -- --help
 ## 已知限制
 
 - `res browse` 存在但尚未实现。
-- `create` 当前不会交互式收集模板变量。
 - 当前只支持执行 `after_write` shell Hook。
-- `template.allowHooksDefault` 会保存到配置中，但 `create` 尚未使用它；请显式传入 `--allow-hooks`。
 - 本地资源是扁平列表，不支持目录。
 - Cloud 操作依赖 AgileBuilder 后端 API 的可用性和当前用户权限。
 

@@ -30,6 +30,11 @@ async function requireProAccess(spaceId: string): Promise<void> {
     if (!license) {
       return;
     }
+    // Some multi-space accounts grant Pro-level write access to the whole user
+    // regardless of the per-space plan label. Honor that when the backend says so.
+    if (license.data.user.hasPro) {
+      return;
+    }
     const space = license.data.spaces.find((s) => s.id === spaceId);
     if (!space) {
       return;

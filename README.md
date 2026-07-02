@@ -25,6 +25,13 @@ Install globally:
 npm install -g agilebuilder
 ```
 
+Run without installing (useful for CI and AI agents):
+
+```bash
+npx agilebuilder --help
+npx agilebuilder@latest create --git-url <url> --target ./app
+```
+
 Or run from a local checkout:
 
 ```bash
@@ -134,8 +141,8 @@ The CLI chooses backend endpoints from `backend.profile`.
 | Value | Behavior |
 | --- | --- |
 | `auto` | Detects China profile when locale/time zone indicates mainland China; otherwise uses global. |
-| `china` | Uses `agilebuilder.cn` endpoints. |
-| `global` | Uses `agilebuilder.net` endpoints. |
+| `china` | Uses `*.agilebuilder.cn` endpoints (`www`, `api-auth`, `api-app`). |
+| `global` | Uses `*.agilebuilder.net` endpoints (`www`, `api-auth`, `api-app`). |
 
 Commands:
 
@@ -153,7 +160,7 @@ Supported config keys:
 | `language` | `auto`, `zh-CN`, `en-US` |
 | `template.allowHooksDefault` | `true`, `false` |
 
-Note: `template.allowHooksDefault` is stored in config, but the current `create` command only executes hooks when `--allow-hooks` is passed.
+Note: when `--allow-hooks` is not passed, `create` falls back to `template.allowHooksDefault` from config. Setting it to `true` makes hooks run by default; passing `--allow-hooks` always takes precedence.
 
 Language detection also reads `AGILEBUILDER_LANG`, `LC_ALL`, `LC_MESSAGES`, and `LANG` when `language` is `auto`.
 
@@ -306,9 +313,9 @@ Options:
 | `--vars <path>` | No | JSON object file with variables. |
 | `--var <key=value...>` | No | One or more scalar variable assignments. |
 | `--overwrite` | No | Allows writing into a non-empty target directory. |
-| `--keep-git` | No | Accepted by the command, but the current file walker still skips `.git` directories. |
-| `--allow-hooks` | No | Allows supported template hooks to run. |
-| `--interactive` | No | Interactively prompt for missing template variables. |
+| `--keep-git` | No | Preserve the template repository's `.git` directory in the target. By default `.git` is skipped. |
+| `--allow-hooks` | No | Allows supported template hooks to run. Takes precedence over `template.allowHooksDefault`. |
+| `--interactive` | No | Interactively prompt for missing template variables. Requires a TTY and cannot be combined with `--json`. |
 | `--json` | No | Emit JSON. |
 
 Target safety:
@@ -317,10 +324,10 @@ Target safety:
 - Existing non-empty targets require `--overwrite`.
 - The target directory is created when needed.
 
-Variable precedence:
+Variable precedence (later sources override earlier ones):
 
-1. Values from repeated `--var key=value`.
-2. Values from `--vars <path>`.
+1. Values from `--vars <path>`.
+2. Values from repeated `--var key=value`.
 3. Values entered interactively when `--interactive` is used and the variable is still missing.
 4. Defaults from template questions, applied only when the variable is still missing.
 
@@ -404,7 +411,7 @@ Hooks:
 - Only `after_write` is currently evaluated.
 - Only `scriptType: shell` is currently executable.
 - Hooks run in the target directory.
-- Hooks run only when `--allow-hooks` is passed.
+- Hooks run when `--allow-hooks` is passed or when `template.allowHooksDefault` is `true`.
 - `errorHandling: stop` fails generation when the hook fails.
 - `errorHandling: warn` and `continue` record the hook as skipped and continue.
 
@@ -531,10 +538,11 @@ Commands:
 | Command | Description |
 | --- | --- |
 | `config` | Manage CLI configuration. |
-| `login` | Login with OAuth or API key. |
-| `logout` | Clear local authentication. |
+| `login` | Login with OAuth or API key. Supports `--json`. |
+| `logout` | Clear local authentication. Supports `--json`. |
 | `auth status` | Show authentication status. |
 | `auth require-token` | Fail unless a valid token is available. |
+| `auth token` | Return the current token (hidden; intended for GUI sidecar). |
 | `space list` / `space ls` | List local and Cloud workspaces. |
 | `space current` | Show current workspace. |
 | `space use <workspace>` | Select `local` or a Cloud workspace ID. |
@@ -549,6 +557,7 @@ Commands:
 | `device list` / `device ls` | List registered devices. |
 | `device revoke <device-id>` | Revoke one device. |
 | `device revoke-all` | Revoke all other devices. |
+| `mcp-debug-resources` | Print MCP-visible resources and templates (hidden debugging command). |
 
 ## Development
 
@@ -565,9 +574,7 @@ The package is TypeScript ESM. Build output is written to `dist/`, and executabl
 ## Known Limits
 
 - `res browse` is present but not implemented.
-- `create` does not currently prompt interactively for template variables.
 - Only `after_write` shell hooks are executable.
-- `template.allowHooksDefault` is persisted but not applied by `create`; pass `--allow-hooks`.
 - Local resources are stored in a flat list and do not support folders.
 - Cloud operations depend on the availability and permissions of the AgileBuilder backend APIs.
 

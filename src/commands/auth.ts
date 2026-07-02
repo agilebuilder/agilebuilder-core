@@ -23,6 +23,9 @@ interface LoginOptions extends JsonOption {
 async function apiKeyLogin(apiKey: string) {
   const user = await ClientApi.getUserProfile(apiKey);
   TokenStore.saveApiKey(apiKey, user);
+  // Best-effort device registration; the backend may not expose this endpoint
+  // in all environments, so failures are intentionally ignored.
+  await ClientApi.registerDevice(apiKey).catch(() => undefined);
   return user;
 }
 
@@ -32,6 +35,14 @@ export function createLoginCommand(): Command {
     .option('--api-key <key>', 'Use API key authentication')
     .option('--json', 'Output JSON')
     .action(async (options: LoginOptions) => {
+      if (options.apiKey === '') {
+        throw new AppError({
+          code: 'API_KEY_REQUIRED',
+          message: 'API key cannot be empty.',
+          suggestion: 'Use --api-key <key> with a non-empty key, or omit the flag to use OAuth.',
+          category: 'validation',
+        });
+      }
       const user = options.apiKey
         ? await apiKeyLogin(options.apiKey)
         : await oauthLogin((url) => {

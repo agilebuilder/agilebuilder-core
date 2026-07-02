@@ -83,11 +83,27 @@ function shouldCompile(filePath: string, config: TemplateConfig): boolean {
 }
 
 function renderTemplate(value: string, variables: Record<string, unknown>, delimiter: string): string {
-  return ejs.render(value, {
-    ...variables,
-    helpers: createHelpers(),
-    ...createHelpers(),
-  }, { delimiter });
+  try {
+    return ejs.render(value, {
+      ...variables,
+      helpers: createHelpers(),
+      ...createHelpers(),
+    }, { delimiter });
+  } catch (error) {
+    if (error instanceof ReferenceError) {
+      const match = error.message.match(/(\w+) is not defined/);
+      const name = match?.[1];
+      throw new AppError({
+        code: 'TEMPLATE_VARS_MISSING',
+        message: name
+          ? `Missing required template variable: ${name}`
+          : 'Missing required template variables.',
+        suggestion: 'Pass values with --vars or --var key=value, or use --interactive to enter them interactively.',
+        category: 'validation',
+      });
+    }
+    throw error;
+  }
 }
 
 function renderPathTemplate(value: string, variables: Record<string, unknown>, delimiter: string): string {
@@ -108,17 +124,40 @@ function renderPathTemplate(value: string, variables: Record<string, unknown>, d
     : braceRendered;
 }
 
-function assertSafeTarget(targetDir: string): void {
-  const resolved = resolve(targetDir);
-  const forbidden = [
-    resolve('/'),
+function isUnsafeTarget(resolved: string): boolean {
+  const lower = resolved.toLowerCase();
+  const forbiddenExact = new Set([
+    resolve('/').toLowerCase(),
     'C:\\',
     'C:\\Windows',
     'C:\\Program Files',
     'C:\\Program Files (x86)',
-  ].map((item) => item.toLowerCase());
+    'C:\\Program Files\\Git',
+  ]);
+  if (forbiddenExact.has(lower)) {
+    return true;
+  }
+  const forbiddenPrefixes = [
+    'C:\\Windows',
+    'C:\\Program Files',
+    'C:\\Program Files (x86)',
+    'C:\\Program Files\\Git',
+  ];
+  for (const prefix of forbiddenPrefixes) {
+    if (lower === prefix.toLowerCase() || lower.startsWith(prefix.toLowerCase() + '\\')) {
+      return true;
+    }
+  }
+  // Drive roots (e.g., C:\) and Unix root
+  if (/^[a-z]:\\$/.test(lower) || lower === '/' || lower === '//') {
+    return true;
+  }
+  return false;
+}
 
-  if (forbidden.includes(resolved.toLowerCase())) {
+function assertSafeTarget(targetDir: string): void {
+  const resolved = resolve(targetDir);
+  if (isUnsafeTarget(resolved)) {
     throw new AppError({
       code: 'UNSAFE_TARGET_DIR',
       message: `Refusing to write to unsafe target directory: ${resolved}`,
@@ -164,6 +203,39 @@ function resolveTemplateRoot(tempDir: string, subdir?: string): string {
     });
   }
   return rootDir;
+}
+
+function assertSafeSubdir(rootDir: string, subdir?: string): void {
+  if (!subdir) {
+    return;
+  }
+  if (subdir.startsWith('/') || /^[a-zA-Z]:[\\/]/.test(subdir)) {
+    throw new AppError({
+      code: 'TEMPLATE_SUBDIR_UNSAFE',
+      message: t('create.subdirUnsafe', { subdir }),
+      suggestion: 'Use a relative subdirectory path that stays within the template repository.',
+      category: 'validation',
+    });
+  }
+  const normalized = subdir.replace(/\\/g, '/');
+  if (normalized.split('/').some((segment) => segment === '..')) {
+    throw new AppError({
+      code: 'TEMPLATE_SUBDIR_UNSAFE',
+      message: t('create.subdirUnsafe', { subdir }),
+      suggestion: 'Use a subdirectory path that stays within the template repository.',
+      category: 'validation',
+    });
+  }
+  const resolved = resolve(rootDir, subdir);
+  const normalizedRoot = resolve(rootDir);
+  if (resolved !== normalizedRoot && !resolved.startsWith(normalizedRoot + sep)) {
+    throw new AppError({
+      code: 'TEMPLATE_SUBDIR_UNSAFE',
+      message: t('create.subdirUnsafe', { subdir }),
+      suggestion: 'Use a subdirectory path that stays within the template repository.',
+      category: 'validation',
+    });
+  }
 }
 
 async function walkFiles(rootDir: string): Promise<string[]> {
@@ -234,53 +306,70 @@ async function runShell(
   env?: Record<string, string>,
   timeoutMs: number = DEFAULT_HOOK_TIMEOUT_MS,
 ): Promise<void> {
-  await new Promise<void>((resolvePromise, reject) => {
-    const child = spawn(script, {
-      cwd,
-      shell: true,
-      stdio: 'pipe',
-      env: { ...process.env, ...env },
-    });
+  const mergedEnv = { ...process.env, ...env };
 
+  await new Promise<void>((resolvePromise, reject) => {
+    let tryBashOnWindows = process.platform === 'win32';
+    let child: ReturnType<typeof spawn>;
     let stdout = '';
     let stderr = '';
-    child.stdout?.on('data', (chunk) => {
-      process.stdout.write(chunk);
-      stdout += chunk;
-    });
-    child.stderr?.on('data', (chunk) => {
-      process.stderr.write(chunk);
-      stderr += chunk;
-    });
+    let timeout: NodeJS.Timeout | undefined;
 
-    const timeout = setTimeout(() => {
-      child.kill('SIGTERM');
-      // Give the process a short grace period, then force kill.
-      setTimeout(() => {
-        if (!child.killed) {
-          child.kill('SIGKILL');
-        }
-      }, 5000).unref();
-      reject(new AppError({
-        code: 'HOOK_TIMEOUT',
-        message: t('hook.timeout', { timeout: Math.round(timeoutMs / 1000) }),
-        category: 'system',
-      }));
-    }, timeoutMs);
-
-    child.once('error', (err) => {
-      clearTimeout(timeout);
-      reject(err);
-    });
-    child.once('exit', (code) => {
-      clearTimeout(timeout);
-      if (code === 0) {
-        resolvePromise();
+    const startProcess = (): void => {
+      if (tryBashOnWindows) {
+        child = spawn('bash', ['-c', script], { cwd, stdio: 'pipe', env: mergedEnv });
       } else {
-        const output = (stderr || stdout).trim();
-        reject(new Error(`Hook exited with code ${code ?? 'unknown'}.${output ? `\n${output}` : ''}`));
+        child = spawn(script, { cwd, shell: true, stdio: 'pipe', env: mergedEnv });
       }
-    });
+
+      child.stdout?.on('data', (chunk) => {
+        process.stdout.write(chunk);
+        stdout += chunk;
+      });
+      child.stderr?.on('data', (chunk) => {
+        process.stderr.write(chunk);
+        stderr += chunk;
+      });
+
+      timeout = setTimeout(() => {
+        child.kill('SIGTERM');
+        // Give the process a short grace period, then force kill.
+        setTimeout(() => {
+          if (!child.killed) {
+            child.kill('SIGKILL');
+          }
+        }, 5000).unref();
+        reject(new AppError({
+          code: 'HOOK_TIMEOUT',
+          message: t('hook.timeout', { timeout: Math.round(timeoutMs / 1000) }),
+          category: 'system',
+        }));
+      }, timeoutMs);
+
+      child.once('error', (err) => {
+        if (timeout) clearTimeout(timeout);
+        const errno = (err as NodeJS.ErrnoException).code;
+        if (tryBashOnWindows && errno === 'ENOENT') {
+          // Git Bash is not available; fall back to the system default shell.
+          tryBashOnWindows = false;
+          startProcess();
+          return;
+        }
+        reject(err);
+      });
+
+      child.once('exit', (code) => {
+        if (timeout) clearTimeout(timeout);
+        if (code === 0) {
+          resolvePromise();
+        } else {
+          const output = (stderr || stdout).trim();
+          reject(new Error(`Hook exited with code ${code ?? 'unknown'}.${output ? `\n${output}` : ''}`));
+        }
+      });
+    };
+
+    startProcess();
   });
 }
 
@@ -330,6 +419,7 @@ async function executeHooks(input: {
 export class TemplateEngine {
   async generateFromGit(options: GenerateFromGitOptions): Promise<GenerateResult> {
     const tempDir = join(tmpdir(), `agilebuilder-core1-${randomUUID()}`);
+    assertSafeTarget(options.targetDir);
     await assertTargetWritable(options.targetDir, options.overwrite);
 
     try {
@@ -349,16 +439,8 @@ export class TemplateEngine {
         warnings.push('No AgileBuilder template config file found; continuing with default config.');
       }
       const sourceSubdir = loaded.config.source?.subdir;
+      assertSafeSubdir(rootDir, sourceSubdir);
       const sourceDir = sourceSubdir ? resolve(rootDir, sourceSubdir) : rootDir;
-      const normalizedTemp = resolve(tempDir);
-      if (sourceDir !== normalizedTemp && !sourceDir.startsWith(normalizedTemp + sep)) {
-        throw new AppError({
-          code: 'TEMPLATE_SUBDIR_UNSAFE',
-          message: t('create.subdirUnsafe', { subdir: sourceSubdir || '' }),
-          suggestion: 'Use a subdirectory path that stays within the template repository.',
-          category: 'validation',
-        });
-      }
       const variables = applyQuestionDefaults(
         loaded.config.variables.inquirerQuestions,
         options.variables || {},

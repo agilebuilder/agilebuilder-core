@@ -1086,3 +1086,71 @@ test('TemplateEngine workspace config with hooks skipped by default', async () =
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+
+test('TemplateEngine normalizes <% delimiter to %', async () => {
+  const { dir, repo, target } = await setup('ag-core1-delim-angle-');
+  try {
+    await createTemplateRepo(repo, {
+      config: [
+        'version: "1.0"',
+        'variables:',
+        '  enabled: true',
+        '  delimiter: "<%"',
+        '  filePatterns:',
+        '    mode: include',
+        '    patterns:',
+        '      - "**/*.txt"',
+        '  inquirerQuestions:',
+        '    - name: projectName',
+        '      type: input',
+        '      message: Project name',
+        '      required: true',
+        '',
+      ].join('\n'),
+      files: [{ path: '{{ projectName }}.txt', content: 'Hello <%= projectName %>\n' }],
+    });
+
+    const result = await new TemplateEngine().generateFromGit({
+      gitUrl: repo,
+      targetDir: target,
+      variables: { projectName: 'angle-app' },
+    });
+
+    assert.equal(result.success, true);
+    assert.equal((await readFile(join(target, 'angle-app.txt'), 'utf8')).replace(/\r\n/g, '\n'), 'Hello angle-app\n');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('TemplateEngine maps EJS ReferenceError to TEMPLATE_VARS_MISSING', async () => {
+  const { dir, repo, target } = await setup('ag-core1-ejs-missing-');
+  try {
+    await createTemplateRepo(repo, {
+      config: [
+        'version: "1.0"',
+        'variables:',
+        '  enabled: true',
+        '  filePatterns:',
+        '    mode: include',
+        '    patterns:',
+        '      - "**/*.txt"',
+        '  inquirerQuestions: []',
+        '',
+      ].join('\n'),
+      files: [{ path: 'app.txt', content: 'Hello <%= undeclaredVar %>\n' }],
+    });
+
+    await assert.rejects(
+      () => new TemplateEngine().generateFromGit({
+        gitUrl: repo,
+        targetDir: target,
+        variables: {},
+      }),
+      (error) => error instanceof Error && 'code' in error && error.code === 'TEMPLATE_VARS_MISSING',
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
