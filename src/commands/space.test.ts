@@ -115,6 +115,21 @@ test('space list --refresh forces license refresh', async () => {
   });
 });
 
+test('space list --refresh without token returns AUTH_TOKEN_UNAVAILABLE', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'ag-core1-space-refresh-cli-'));
+  const dataDir = join(base, 'data');
+  await mkdir(dataDir, { recursive: true });
+  try {
+    const { stderr, exitCode } = await runCli(['space', 'list', '--refresh', '--json'], dataDir);
+    assert.notEqual(exitCode, 0);
+    const parsed = JSON.parse(stderr);
+    assert.equal(parsed.ok, false);
+    assert.equal(parsed.error.code, 'AUTH_TOKEN_UNAVAILABLE');
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
 test('space current defaults to local workspace', async () => {
   await withIsolatedDataDir(async () => {
     mockLicense(null);

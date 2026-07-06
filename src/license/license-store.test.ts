@@ -171,6 +171,17 @@ test('LicenseStore.getOrRefresh returns null when no token and no cache', async 
   });
 });
 
+test('LicenseStore.getOrRefresh force refresh throws AUTH_TOKEN_UNAVAILABLE when no token', async () => {
+  await withIsolatedDataDir(async () => {
+    TokenStore.getValidToken = async () => null;
+
+    await assert.rejects(
+      () => LicenseStore.getOrRefresh(true),
+      (error) => error instanceof AppError && error.code === 'AUTH_TOKEN_UNAVAILABLE',
+    );
+  });
+});
+
 test('LicenseStore.refresh throws AUTH_TOKEN_UNAVAILABLE when no token', async () => {
   await withIsolatedDataDir(async () => {
     TokenStore.getValidToken = async () => null;

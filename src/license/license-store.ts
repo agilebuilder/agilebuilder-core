@@ -67,6 +67,9 @@ export class LicenseStore {
     }
     const token = await TokenStore.getValidToken();
     if (!token) {
+      if (force) {
+        throw new AppError({ code: 'AUTH_TOKEN_UNAVAILABLE', message: 'Login is required to refresh license.', category: 'auth' });
+      }
       return null;
     }
     return this.refresh();
