@@ -105,6 +105,7 @@ export async function oauthLogin(onAuthUrl?: (url: string) => void): Promise<Use
       } catch (caught) {
         settled = true;
         const message = caught instanceof Error ? caught.message : String(caught);
+        console.error(`OAuth callback error: ${message}`);
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(html(`AgileBuilder login failed: ${message}`));
         server.close();
