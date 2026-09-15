@@ -11,12 +11,13 @@ import { APP_VERSION } from '../shared/constants.js';
 import { AppError, toAppError } from '../errors/app-error.js';
 import { getMCPContext } from './context.js';
 import { toolResult, errorResult } from './shared.js';
+import { SERVER_INSTRUCTIONS } from './server-instructions.js';
 import { listMcpResources, readMcpResource, USAGE_GUIDE_URI } from './resources/index.js';
 import { toolSchemas, listResources, getResource, createProject } from './tools/index.js';
 
 const server = new Server(
   { name: 'agilebuilder-core1-mcp', version: APP_VERSION },
-  { capabilities: { tools: {}, resources: {} } },
+  { capabilities: { tools: {}, resources: {} }, instructions: SERVER_INSTRUCTIONS },
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({

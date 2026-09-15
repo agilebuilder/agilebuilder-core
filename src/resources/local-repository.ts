@@ -10,6 +10,7 @@ import type {
   LocalResourceStoreData,
   ResourceType,
   TemplateResource,
+  TemplateVariableInfo,
   UpdateResourceInput,
 } from './types.js';
 
@@ -168,6 +169,19 @@ export class LocalResourceRepository {
           wordCount: input.content === undefined ? current.wordCount : calculateWordCount(input.content),
         };
 
+    store.items[index] = resource;
+    await this.save(store);
+    return resource;
+  }
+
+  async saveTemplateVariables(id: string, variables: TemplateVariableInfo[]): Promise<TemplateResource | null> {
+    const store = await this.load();
+    const index = store.items.findIndex((item) => item.id === id && item.type === 'template');
+    if (index === -1) {
+      return null;
+    }
+    const current = store.items[index] as TemplateResource;
+    const resource: TemplateResource = { ...current, variables, updatedAt: now() };
     store.items[index] = resource;
     await this.save(store);
     return resource;

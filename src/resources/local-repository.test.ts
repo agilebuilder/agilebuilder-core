@@ -212,3 +212,27 @@ test('LocalResourceRepository update keeps word count when content is unchanged'
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('LocalResourceRepository saveTemplateVariables caches the schema on the template', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'ag-core1-res-vars-'));
+  try {
+    const repository = new LocalResourceRepository(join(dir, 'local.json'));
+    const template = await repository.addTemplate({ name: 'web', gitUrl: 'https://example.com/web.git' });
+
+    const saved = await repository.saveTemplateVariables(template.id, [
+      { name: 'projectName', type: 'input', message: 'Project name', required: true },
+    ]);
+    assert.equal(saved?.variables?.length, 1);
+    assert.equal(saved?.variables?.[0].name, 'projectName');
+
+    const reloaded = await repository.get(template.id);
+    assert.equal(reloaded?.type, 'template');
+    if (reloaded?.type === 'template') {
+      assert.equal(reloaded.variables?.[0].required, true);
+    }
+
+    assert.equal(await repository.saveTemplateVariables('999', []), null);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

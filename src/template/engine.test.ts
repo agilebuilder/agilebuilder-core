@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -1150,6 +1150,28 @@ test('TemplateEngine maps EJS ReferenceError to TEMPLATE_VARS_MISSING', async ()
       }),
       (error) => error instanceof Error && 'code' in error && error.code === 'TEMPLATE_VARS_MISSING',
     );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('TemplateEngine records the template commit hash in the result', async () => {
+  const { dir, repo, target } = await setup('ag-core1-commit-');
+  try {
+    await createTemplateRepo(repo, {
+      config: minimalYamlConfig,
+      files: [{ path: '{{ projectName }}.txt', content: 'Hello <%= projectName %>\n' }],
+    });
+    const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: repo });
+
+    const result = await new TemplateEngine().generateFromGit({
+      gitUrl: repo,
+      targetDir: target,
+      variables: { projectName: 'demo-app' },
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(result.templateCommit, stdout.trim());
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

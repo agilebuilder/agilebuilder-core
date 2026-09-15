@@ -1,13 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { execFile } from 'node:child_process';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { promisify } from 'node:util';
 import { AppError } from '../../errors/app-error.js';
-import { initGitRepo } from '../../test-helpers/git-fixture.js';
+import { initGitRepo, git } from '../../test-helpers/git-fixture.js';
 import { withIsolatedDataDir } from '../../test-helpers/data-dir.js';
 import { LocalResourceRepository } from '../../resources/local-repository.js';
 import { TemplateEngine } from '../../template/engine.js';
+
+const execFileAsync = promisify(execFile);
 
 type ToolsModule = typeof import('./index.js');
 
@@ -92,7 +96,7 @@ test('listResources filters by keyword', async () => {
 test('getResource returns a local resource by id', async () => {
   await withIsolatedDataDir(async () => {
     const seedRepo = new LocalResourceRepository();
-    const created = await seedRepo.addTemplate({ name: 'Get Demo', gitUrl: 'https://example.com/get.git' });
+    const created = await seedRepo.addTemplate({ name: 'Get Demo', gitUrl: join(tmpdir(), 'ag-core1-missing-repo-for-get') });
 
     const { getResource } = await loadTools();
     const result = await getResource({ resourceId: created.id });
@@ -100,6 +104,7 @@ test('getResource returns a local resource by id', async () => {
     assert.equal(result.ok, true);
     assert.equal(result.data.id, created.id);
     assert.equal(result.data.name, 'Get Demo');
+    assert.equal((result.data as { variables?: unknown }).variables, undefined);
   });
 });
 
@@ -203,4 +208,99 @@ test('createProject throws INVALID_VARIABLES for non-object variables', async ()
       (error) => error instanceof AppError && error.code === 'INVALID_VARIABLES',
     );
   });
+});
+
+test('all tools have title, annotations, and multi-sentence descriptions', async () => {
+  const { toolSchemas } = await loadTools();
+  assert.equal(toolSchemas.length, 4);
+  for (const schema of toolSchemas) {
+    assert.equal(typeof schema.title, 'string', `${schema.name} should have a title`);
+    assert.ok(schema.annotations, `${schema.name} should have annotations`);
+    assert.ok(schema.description.length > 80, `${schema.name} should have a detailed description`);
+  }
+
+  const readOnly = ['list_resources', 'search_resources', 'get_resource'];
+  for (const name of readOnly) {
+    const schema = findSchema(toolSchemas, name)!;
+    assert.equal((schema.annotations as { readOnlyHint?: boolean }).readOnlyHint, true, `${name} should be read-only`);
+  }
+
+  const create = findSchema(toolSchemas, 'create_project')!;
+  const annotations = create.annotations as { destructiveHint?: boolean; openWorldHint?: boolean };
+  assert.equal(annotations.destructiveHint, false);
+  assert.equal(annotations.openWorldHint, true);
+});
+
+test('createProject result includes the template commit hash', async () => {
+  const baseDir = await mkdtemp(join(tmpdir(), 'ag-core1-mcp-commit-'));
+  try {
+    await withIsolatedDataDir(async () => {
+      const repoDir = join(baseDir, 'repo');
+      const targetDir = join(baseDir, 'target');
+      await initGitRepo(repoDir, [{ path: 'hello.txt', content: 'Hello' }]);
+      const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: repoDir });
+
+      const { createProject } = await loadTools();
+      const result = await createProject({ gitUrl: repoDir, targetPath: targetDir });
+
+      assert.equal(result.ok, true);
+      assert.equal(result.data.templateCommit, stdout.trim());
+    });
+  } finally {
+    await rm(baseDir, { recursive: true, force: true });
+  }
+});
+
+test('getResource lazily resolves and caches template variables for local templates', async () => {
+  const baseDir = await mkdtemp(join(tmpdir(), 'ag-core1-mcp-vars-'));
+  try {
+    await withIsolatedDataDir(async () => {
+      const repoDir = join(baseDir, 'repo');
+      await initGitRepo(repoDir, [
+        {
+          path: '.agilebuilder.config.yaml',
+          content: [
+            'version: "1.0"',
+            'variables:',
+            '  enabled: true',
+            '  inquirerQuestions:',
+            '    - name: projectName',
+            '      type: input',
+            '      message: Project name',
+            '      required: true',
+            '    - name: useAuth',
+            '      type: confirm',
+            '      message: Enable auth',
+            '      default: false',
+            '',
+          ].join('\n'),
+        },
+        { path: 'hello.txt', content: 'Hello' },
+      ]);
+      await git(repoDir, ['branch', '-M', 'main']);
+      const seedRepo = new LocalResourceRepository();
+      const created = await seedRepo.addTemplate({ name: 'Vars Demo', gitUrl: repoDir });
+
+      const { getResource } = await loadTools();
+      const first = await getResource({ resourceId: created.id });
+      assert.equal(first.ok, true);
+      const variables = (first.data as { variables?: Array<{ name: string; type: string; required: boolean; default?: unknown }> }).variables;
+      assert.ok(variables);
+      assert.equal(variables.length, 2);
+      assert.equal(variables[0].name, 'projectName');
+      assert.equal(variables[0].required, true);
+      assert.equal(variables[1].name, 'useAuth');
+      assert.equal(variables[1].required, false);
+      assert.equal(variables[1].default, false);
+
+      const stored = await seedRepo.get(created.id);
+      assert.equal(stored?.type, 'template');
+      assert.equal(stored?.type === 'template' ? stored.variables?.length : 0, 2);
+
+      const second = await getResource({ resourceId: created.id });
+      assert.equal((second.data as { variables?: unknown[] }).variables?.length, 2);
+    });
+  } finally {
+    await rm(baseDir, { recursive: true, force: true });
+  }
 });

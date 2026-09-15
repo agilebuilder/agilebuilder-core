@@ -1,4 +1,4 @@
-﻿import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { existsSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -37,6 +37,7 @@ export interface GenerateResult {
   filesSkipped: string[];
   variables: Record<string, unknown>;
   configFile?: string;
+  templateCommit?: string;
   warnings?: string[];
   hooksSkipped?: string[];
   hooksExecuted?: string[];
@@ -190,7 +191,7 @@ async function assertTargetWritable(targetDir: string, overwrite: boolean | unde
   }
 }
 
-function resolveTemplateRoot(tempDir: string, subdir?: string): string {
+export function resolveTemplateRoot(tempDir: string, subdir?: string): string {
   const normalizedTemp = resolve(tempDir);
   const rootDir = resolve(normalizedTemp, subdir || '.');
   // Ensure the resolved root stays inside the temp clone directory.
@@ -203,6 +204,15 @@ function resolveTemplateRoot(tempDir: string, subdir?: string): string {
     });
   }
   return rootDir;
+}
+
+async function resolveHeadCommit(dir: string): Promise<string | undefined> {
+  try {
+    const hash = (await simpleGit(dir).revparse(['HEAD'])).trim();
+    return hash || undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function assertSafeSubdir(rootDir: string, subdir?: string): void {
@@ -429,6 +439,7 @@ export class TemplateEngine {
         cloneArgs.push('--branch', options.branch);
       }
       await git.clone(options.gitUrl, tempDir, cloneArgs);
+      const templateCommit = await resolveHeadCommit(tempDir);
 
       const rootDir = resolveTemplateRoot(tempDir, options.subdir);
       const warnings: string[] = [];
@@ -474,6 +485,7 @@ export class TemplateEngine {
         filesSkipped,
         variables,
         configFile: loaded.fileName,
+        templateCommit,
         warnings,
         hooksSkipped,
         hooksExecuted,

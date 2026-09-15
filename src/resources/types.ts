@@ -10,12 +10,22 @@ export interface ResourceBase {
   updatedAt: string;
 }
 
+export interface TemplateVariableInfo {
+  name: string;
+  type: string;
+  message?: string;
+  required: boolean;
+  default?: unknown;
+  choices?: Array<string | { name: string; value: unknown }>;
+}
+
 export interface TemplateResource extends ResourceBase {
   type: 'template';
   gitUrl: string;
   branch: string;
   subdir?: string;
   configFile?: string;
+  variables?: TemplateVariableInfo[];
 }
 
 export interface DocResource extends ResourceBase {

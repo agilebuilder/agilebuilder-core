@@ -124,6 +124,10 @@ function resourceDetailLines(resource: ResourceLike): string[] {
   if ('gitUrl' in resource && resource.gitUrl) values.push(`${t('output.label.git')}: ${resource.gitUrl}`);
   if ('branch' in resource && resource.branch) values.push(`${t('output.label.branch')}: ${resource.branch}`);
   if ('subdir' in resource && resource.subdir) values.push(`${t('output.label.subdir')}: ${resource.subdir}`);
+  if ('variables' in resource && resource.variables && resource.variables.length > 0) {
+    const names = resource.variables.map((variable) => variable.required ? `${variable.name} (required)` : variable.name);
+    values.push(`${t('output.label.variables')}: ${names.join(', ')}`);
+  }
   if ('uri' in resource && resource.uri) values.push(`${t('output.label.uri')}: ${resource.uri}`);
   if ('wordCount' in resource && resource.wordCount !== undefined) values.push(`${t('output.label.words')}: ${resource.wordCount}`);
   if ('spaceId' in resource && resource.spaceId) values.push(`${t('output.label.space')}: ${resource.spaceName ?? resource.spaceId}`);
@@ -232,6 +236,7 @@ export function renderCreateResult(data: GenerateResult): string {
     `${t('output.label.target')}: ${data.targetDir}`,
     `${t('output.label.filesWritten')}: ${data.filesWritten.length}`,
     `${t('output.label.filesSkipped')}: ${data.filesSkipped.length}`,
+    data.templateCommit ? `${t('output.label.templateCommit')}: ${data.templateCommit}` : undefined,
     hooksExecuted.length ? `${t('output.label.hooksExecuted')}: ${hooksExecuted.join(', ')}` : undefined,
     hooksSkipped.length ? `${t('output.label.hooksSkipped')}: ${hooksSkipped.join(', ')}` : undefined,
     warnings.length ? '' : undefined,
