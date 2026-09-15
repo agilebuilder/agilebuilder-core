@@ -20,7 +20,7 @@ export const toolSchemas = [
     name: 'list_resources',
     title: 'List Workspace Resources',
     description:
-      'List all template and doc resources in the current AgileBuilder workspace. Use this first to discover what the team has registered before creating a project. Returns the full set, optionally filtered by type; for keyword-based lookup use search_resources instead.',
+      'List all template and doc resources in the current AgileBuilder workspace. This is the preferred way to discover templates: workspaces are usually small, so review the full set and judge matches by meaning (names, descriptions, tags), not by keyword. Optionally filter by type; use search_resources only to narrow down a large workspace.',
     annotations: { readOnlyHint: true },
     inputSchema: {
       type: 'object',
@@ -34,13 +34,13 @@ export const toolSchemas = [
     name: 'search_resources',
     title: 'Search Workspace Resources',
     description:
-      'Search resources in the current AgileBuilder workspace by keyword. Use this to find a template matching the user\'s intent before calling get_resource and create_project. The keyword matches name, description, tags, source URL, and doc content. Omitting keyword returns the same result as list_resources.',
+      'Search resources in the current AgileBuilder workspace by keyword. Matching is plain case-insensitive substring over name, description, tags, source URL, and doc content — there is NO semantic understanding, so a "backend" request will not match a "java-api" template unless its metadata says so. Use this only to narrow down a large workspace or as a quick probe; if it returns nothing, fall back to list_resources and evaluate the full set yourself before concluding there is no match. Omitting keyword returns the same result as list_resources.',
     annotations: { readOnlyHint: true },
     inputSchema: {
       type: 'object',
       additionalProperties: false,
       properties: {
-        keyword: { type: 'string', description: 'Case-insensitive search keyword. Omit to list everything (equivalent to list_resources).' },
+        keyword: { type: 'string', description: 'Case-insensitive substring keyword. Try several variants (e.g. backend, server, java, spring) before concluding there is no match. Omit to list everything (equivalent to list_resources).' },
         type: { type: 'string', enum: ['template', 'doc'], description: 'Optional filter: return only templates or only docs. Omit to return both.' },
       },
     },
