@@ -105,8 +105,8 @@ export async function resolveTemplateResourceRef(
         templateConfig: source.templateConfig,
         source: 'cloud',
       };
-    } catch {
-      // continue searching
+    } catch (error) {
+      if (!isResourceNotFoundError(error)) throw error;
     }
   }
 
@@ -121,8 +121,7 @@ function isResourceNotFoundError(error: unknown): boolean {
   if (!(error instanceof AppError)) {
     return false;
   }
-  return error.category === 'resource'
-    || error.code === 'HTTP_404'
+  return error.code === 'HTTP_404'
     || error.code === 'API_404'
     || /NOT_FOUND/i.test(error.code);
 }

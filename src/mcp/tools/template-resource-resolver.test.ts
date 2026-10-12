@@ -177,3 +177,34 @@ test('resolveTemplateResourceRef does not treat current-space network errors as 
   );
   assert.equal(settingsCalls, 0);
 });
+
+test('resolveTemplateResourceRef reports invalid current templates without searching other spaces', async () => {
+  let settingsCalls = 0;
+  CloudResourceRepository.prototype.get = async () => {
+    throw new AppError({ code: 'CLOUD_TEMPLATE_GIT_SOURCE_REQUIRED', message: 'invalid template', category: 'resource' });
+  };
+  ClientApi.getClientUserSettings = async () => { settingsCalls++; return { mcp: { spaceIsolation: false } }; };
+  await assert.rejects(() => resolveTemplateResourceRef(context, 'invalid'),
+    error => error instanceof AppError && error.code === 'CLOUD_TEMPLATE_GIT_SOURCE_REQUIRED');
+  assert.equal(settingsCalls, 0);
+});
+
+test('resolveTemplateResourceRef reports cross-space network failures instead of turning them into missing resources', async () => {
+  CloudResourceRepository.prototype.get = async (spaceId, resourceId) => {
+    if (spaceId === context.spaceId) throw notFound(resourceId);
+    throw new AppError({ code: 'HTTP_503', message: 'server unavailable', category: 'network' });
+  };
+  ClientApi.getClientUserSettings = async () => ({ mcp: { spaceIsolation: false } });
+  LicenseStore.getOrRefresh = async () => licenseWithSpaces('space-current', 'space-other');
+  await assert.rejects(() => resolveTemplateResourceRef(context, 'missing'),
+    error => error instanceof AppError && error.code === 'HTTP_503');
+});
+
+test('resolveTemplateResourceRef without token never reads settings or expands discovery', async () => {
+  let settingsCalls = 0;
+  CloudResourceRepository.prototype.get = async (_spaceId, resourceId) => { throw notFound(resourceId); };
+  ClientApi.getClientUserSettings = async () => { settingsCalls++; return { mcp: { spaceIsolation: false } }; };
+  await assert.rejects(() => resolveTemplateResourceRef({ ...context, accessToken: null }, 'missing'),
+    error => error instanceof AppError && error.code === 'RESOURCE_NOT_FOUND');
+  assert.equal(settingsCalls, 0);
+});

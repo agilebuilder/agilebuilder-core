@@ -1,6 +1,6 @@
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { existsSync, statSync } from 'node:fs';
-import { dirname, join, relative, resolve, sep } from 'node:path';
+import { dirname, join, relative, resolve, sep, delimiter } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
@@ -310,6 +310,19 @@ async function copyTemplateFiles(input: {
 
 const DEFAULT_HOOK_TIMEOUT_MS = 5 * 60 * 1000;
 
+function windowsGitBash(env: NodeJS.ProcessEnv): string {
+  // Windows' System32 bash is WSL and may not have the host's Node/tools.
+  // Locate the shell beside the Git installation already available on PATH.
+  for (const directory of (env.PATH || env.Path || '').split(delimiter)) {
+    const path = directory.replace(/^"|"$/g, '');
+    if (!path || !existsSync(join(path, 'git.exe'))) continue;
+    for (const candidate of [join(path, 'bash.exe'), join(dirname(path), 'bin', 'bash.exe')]) {
+      if (existsSync(candidate)) return candidate;
+    }
+  }
+  return 'bash';
+}
+
 async function runShell(
   script: string,
   cwd: string,
@@ -327,7 +340,7 @@ async function runShell(
 
     const startProcess = (): void => {
       if (tryBashOnWindows) {
-        child = spawn('bash', ['-c', script], { cwd, stdio: 'pipe', env: mergedEnv });
+        child = spawn(windowsGitBash(mergedEnv), ['-c', script], { cwd, stdio: 'pipe', env: mergedEnv });
       } else {
         child = spawn(script, { cwd, shell: true, stdio: 'pipe', env: mergedEnv });
       }
