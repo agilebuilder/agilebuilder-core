@@ -27,3 +27,5 @@ src/**/*.d.ts.map
 
 .opensource-sync.json
 docs
+# Local verification output
+logs-stage-*.log

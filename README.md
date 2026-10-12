@@ -285,7 +285,7 @@ ag res remove <id> --yes
 ag res rm <id> --yes --json
 ```
 
-`--yes` is required. The `res browse` command exists as a placeholder and is not implemented.
+`--yes` is required. Use `res list`, `res search`, and `res get` to browse resources.
 
 ## Project Creation
 
@@ -573,7 +573,6 @@ The package is TypeScript ESM. Build output is written to `dist/`, and executabl
 
 ## Known Limits
 
-- `res browse` is present but not implemented.
 - Only `after_write` shell hooks are executable.
 - Local resources are stored in a flat list and do not support folders.
 - Cloud operations depend on the availability and permissions of the AgileBuilder backend APIs.
