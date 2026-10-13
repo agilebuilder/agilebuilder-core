@@ -21,6 +21,7 @@ interface JsonOption {
 
 interface ListOptions extends JsonOption {
   type?: ResourceType;
+  spaceId?: string;
 }
 
 interface AddTemplateOptions extends JsonOption {
@@ -75,6 +76,22 @@ function parseResourceType(value: string | undefined): ResourceType | undefined 
   });
 }
 
+async function readDocFile(filePath: string): Promise<string> {
+  try {
+    return await readFile(filePath, 'utf8');
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    throw new AppError({
+      code: 'DOC_FILE_READ_FAILED',
+      message: t('res.docFileReadFailed', { path: filePath }),
+      suggestion: code === 'ENOENT'
+        ? 'Check that the file path is correct.'
+        : 'Check that the file is readable.',
+      category: 'validation',
+    });
+  }
+}
+
 export function createResCommand(): Command {
   const repository = new LocalResourceRepository();
   const cloudRepository = new CloudResourceRepository();
@@ -87,17 +104,18 @@ export function createResCommand(): Command {
     .alias('ls')
     .description(t('res.list.description'))
     .option('--type <type>', 'Filter by resource type')
+    .option('--space-id <id>', 'Target workspace ID (cloud only)')
     .option('--json', 'Output JSON')
     .action(async (options: ListOptions) => {
       const type = parseResourceType(options.type);
-      const current = WorkspaceStore.getCurrent();
-      if (current.id === LOCAL_SPACE_ID) {
+      const target = resolveTargetWorkspace(options.spaceId);
+      if (target === LOCAL_SPACE_ID) {
         const items = await repository.list({ type });
-        writeSuccess({ workspaceId: current.id, items, total: items.length }, options, renderResourceList);
+        writeSuccess({ workspaceId: target, items, total: items.length }, options, renderResourceList);
         return;
       }
-      const result = await cloudRepository.list({ spaceId: current.id, type });
-      writeSuccess({ workspaceId: current.id, ...result }, options, renderResourceList);
+      const result = await cloudRepository.list({ spaceId: target, type });
+      writeSuccess({ workspaceId: target, ...result }, options, renderResourceList);
     });
 
   command
@@ -105,17 +123,18 @@ export function createResCommand(): Command {
     .argument('<keyword>')
     .description(t('res.search.description'))
     .option('--type <type>', 'Filter by resource type')
+    .option('--space-id <id>', 'Target workspace ID (cloud only)')
     .option('--json', 'Output JSON')
     .action(async (keyword: string, options: ListOptions) => {
       const type = parseResourceType(options.type);
-      const current = WorkspaceStore.getCurrent();
-      if (current.id === LOCAL_SPACE_ID) {
+      const target = resolveTargetWorkspace(options.spaceId);
+      if (target === LOCAL_SPACE_ID) {
         const items = await repository.list({ type, keyword });
-        writeSuccess({ workspaceId: current.id, items, total: items.length }, options, renderResourceList);
+        writeSuccess({ workspaceId: target, items, total: items.length }, options, renderResourceList);
         return;
       }
-      const result = await cloudRepository.list({ spaceId: current.id, type, keyword });
-      writeSuccess({ workspaceId: current.id, ...result }, options, renderResourceList);
+      const result = await cloudRepository.list({ spaceId: target, type, keyword });
+      writeSuccess({ workspaceId: target, ...result }, options, renderResourceList);
     });
 
   command
@@ -180,7 +199,7 @@ export function createResCommand(): Command {
       const target = resolveTargetWorkspace(options.spaceId);
       ensureCloudOnlyOption(target, options.parentId, '--parent-id');
       const content = options.file
-        ? await readFile(options.file, 'utf8')
+        ? await readDocFile(options.file)
         : options.content;
       if (!content) {
         throw new AppError({
@@ -231,7 +250,7 @@ export function createResCommand(): Command {
       const type = requireEditableResourceType(current.type);
       validateEditOptions(type, options);
       const content = options.file
-        ? await readFile(options.file, 'utf8')
+        ? await readDocFile(options.file)
         : options.content;
       const input = {
         name: options.name,
@@ -288,16 +307,6 @@ export function createResCommand(): Command {
         await cloudRepository.remove(target, id);
       }
       writeSuccess({ message: t('res.remove.success'), id }, options, renderResourceRemoved);
-    });
-
-  command
-    .command('browse')
-    .description('Interactive resource browser')
-    .action(() => {
-      printError(new AppError({
-        code: 'NOT_IMPLEMENTED',
-        message: 'Interactive resource browser is not implemented yet.',
-      }));
     });
 
   return command;

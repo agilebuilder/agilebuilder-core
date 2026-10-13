@@ -1,6 +1,6 @@
 {
   "name": "agilebuilder",
-  "version": "0.1.0",
+  "version": "1.2.3",
   "description": "AI-native developer tooling for template-based project creation and document-guided development via CLI and MCP.",
   "type": "module",
   "main": "dist/index.js",
@@ -22,6 +22,7 @@
     "!dist/**/*.test.d.ts",
     "!dist/**/*.test.js.map",
     "!dist/**/*.test.d.ts.map",
+    "!dist/test-helpers/**",
     "bin",
     "docs",
     "README.md",
@@ -38,6 +39,8 @@
     "dev": "tsx src/cli/index.ts",
     "start": "node dist/cli/index.js",
     "test": "npm run build && node --test dist/**/*.test.js",
+    "test:unit": "node --import tsx --test src/**/*.test.ts",
+    "test:ci": "npm run typecheck && npm run test",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [
@@ -67,13 +70,13 @@
   "homepage": "https://www.agilebuilder.net",
   "dependencies": {
     "@inquirer/prompts": "^8.3.0",
-    "@modelcontextprotocol/sdk": "^1.27.1",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "chalk": "^5.6.2",
     "commander": "^14.0.2",
     "ejs": "^3.1.10",
     "minimatch": "^10.1.1",
     "open": "^10.2.0",
-    "simple-git": "^3.33.0",
+    "simple-git": "^4.0.2",
     "yaml": "^2.8.1"
   },
   "devDependencies": {

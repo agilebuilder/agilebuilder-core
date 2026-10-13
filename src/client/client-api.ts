@@ -1,3 +1,6 @@
+import { platform, release, hostname } from 'node:os';
+import { getDeviceId } from '../device/device-id.js';
+import { APP_VERSION, CLIENT_TYPE } from '../shared/constants.js';
 import { ClientHttp } from './http.js';
 import type { UserInfo } from '../auth/types.js';
 
@@ -43,7 +46,7 @@ export interface CloudResourceListItem {
   spaceId: string;
   spaceName?: string;
   name: string;
-  type: 'template' | 'pipeline' | 'doc';
+  type: 'template' | 'doc';
   description?: string;
   tags?: string[];
   nodeId?: string;
@@ -158,16 +161,8 @@ export class ClientApi {
     return ClientHttp.get<UserInfo>('/api/client/user/profile', { token });
   }
 
-  static getUserSpaces(token: string): Promise<CloudSpace[]> {
-    return ClientHttp.get<CloudSpace[]>('/api/client/user/spaces', { token });
-  }
-
   static getLicense(token: string): Promise<LicenseResponse> {
     return ClientHttp.get<LicenseResponse>('/api/client/license', { token });
-  }
-
-  static refreshLicense(token: string): Promise<LicenseResponse> {
-    return ClientHttp.post<LicenseResponse>('/api/client/license/refresh', undefined, { token });
   }
 
   static searchResources(
@@ -211,6 +206,17 @@ export class ClientApi {
 
   static listDevices(token: string): Promise<DeviceListResponse> {
     return ClientHttp.get<DeviceListResponse>('/api/client/device/list', { token });
+  }
+
+  static registerDevice(token: string): Promise<{ isNew?: boolean }> {
+    return ClientHttp.post<{ isNew?: boolean }>('/api/client/device/register', {
+      deviceId: getDeviceId(),
+      deviceName: hostname(),
+      deviceType: CLIENT_TYPE,
+      os: platform() === 'win32' ? 'Windows' : platform() === 'darwin' ? 'macOS' : platform(),
+      osVersion: release(),
+      clientVersion: APP_VERSION,
+    }, { token });
   }
 
   static revokeDevice(token: string, deviceId: string, reason?: string): Promise<unknown> {

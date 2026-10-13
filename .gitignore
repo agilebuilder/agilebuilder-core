@@ -17,9 +17,15 @@ outputs/
 logs/
 case-temp/
 case-temp2/
+opensource/
 
 # TypeScript compiled output in src directory
 src/**/*.js
 src/**/*.d.ts
 src/**/*.js.map
 src/**/*.d.ts.map
+
+.opensource-sync.json
+docs
+# Local verification output
+logs-stage-*.log

@@ -1,0 +1,17 @@
+export const SERVER_INSTRUCTIONS = [
+  'AgileBuilder generates projects from the controlled, workspace-registered templates of the current AgileBuilder workspace, and exposes team guideline documents (docs) as readable resources. It is not a general-purpose code generator: its purpose is to make sure every project starts from an approved template with the team\'s engineering standards already applied. Do not use it to hand-write arbitrary scaffolding.',
+  '',
+  'Standard workflow:',
+  '1. Call list_resources to see everything registered in the workspace (it is usually small) and pick the template that matches what the user wants to build by meaning, not by keyword. Use search_resources only to narrow down a large workspace.',
+  '2. Call get_resource on the chosen template to review its description and its variable list (names, required flags, defaults).',
+  '3. Confirm the variable values and the target directory (targetPath) with the user.',
+  '4. Call create_project with the confirmed resourceId, targetPath, and variables.',
+  '5. Report the outcome to the user: files written, the template commit hash (templateCommit), and whether template hooks ran or were skipped.',
+  '',
+  'Hard rules:',
+  '- Never pass allowHooks: true unless the user explicitly asked for template hooks to run. Hooks are arbitrary shell scripts shipped with the template.',
+  '- Never pass overwrite: true for a non-empty directory unless the user explicitly confirmed that its contents may be overwritten.',
+  '- If no template matches the user\'s request, stop and ask the user how to proceed instead of hand-writing scaffolding yourself.',
+  '- search_resources is plain substring matching with no semantic understanding. If it returns nothing, never conclude "no matching template exists" — fall back to list_resources and evaluate the full set yourself (a "backend" request may match a Java or Spring template).',
+  '- When a tool result contains ok: false, read error.code and error.suggestion before retrying or asking the user.',
+].join('\n');

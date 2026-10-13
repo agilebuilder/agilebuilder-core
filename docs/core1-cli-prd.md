@@ -153,7 +153,7 @@ MVP 支持两类资源：
 MVP Schema 示例：
 
 ```yaml
-version: 1
+version: '1.0'
 name: react-admin
 description: React admin starter
 source:
@@ -407,7 +407,7 @@ MVP 依赖接口：
 MVP 推荐存储结构：
 
 ```text
-~/.agilebuilder/core/
+~/.agilebuilder/v2/
   config.json
   auth.enc
   current-space.json

@@ -16,7 +16,7 @@ export interface TemplateQuestion {
 }
 
 export interface TemplateConfig {
-  version: number;
+  version: string;
   name?: string;
   description?: string;
   source?: {
@@ -55,7 +55,7 @@ export interface LoadedTemplateConfig {
 }
 
 export const DEFAULT_TEMPLATE_CONFIG: TemplateConfig = {
-  version: 1,
+  version: '1.0',
   variables: {
     enabled: false,
     filePatterns: {
@@ -74,6 +74,19 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 function normalizeFilePatternMode(value: unknown): FilePatternMode {
   return value === 'include' || value === 'exclude' || value === 'all' ? value : 'all';
+}
+
+function normalizeDelimiter(value: unknown): string {
+  if (typeof value !== 'string' || value.length === 0) {
+    return '%';
+  }
+  // EJS delimiter is the character inside the angle brackets. Users often
+  // write "<%" when they mean the default "<% %>" tag, so normalize it.
+  const trimmed = value.trim();
+  if (trimmed === '<%' || trimmed === '%>') {
+    return '%';
+  }
+  return trimmed;
 }
 
 function normalizeQuestions(value: unknown): TemplateQuestion[] {
@@ -129,7 +142,7 @@ export function normalizeTemplateConfig(value: unknown): TemplateConfig {
   const filePatterns = isObject(variables.filePatterns) ? variables.filePatterns : {};
 
   return {
-    version: typeof value.version === 'number' ? value.version : 1,
+    version: typeof value.version === 'string' ? value.version : '1.0',
     name: typeof value.name === 'string' ? value.name : undefined,
     description: typeof value.description === 'string' ? value.description : undefined,
     source: isObject(value.source)
@@ -146,9 +159,7 @@ export function normalizeTemplateConfig(value: unknown): TemplateConfig {
           ? filePatterns.patterns.filter((item): item is string => typeof item === 'string')
           : ['**/*'],
       },
-      delimiter: typeof variables.delimiter === 'string' && variables.delimiter.length > 0
-        ? variables.delimiter
-        : '%',
+      delimiter: normalizeDelimiter(variables.delimiter),
       inquirerQuestions: normalizeQuestions(variables.inquirerQuestions),
     },
     hooks: normalizeHooks(value.hooks),

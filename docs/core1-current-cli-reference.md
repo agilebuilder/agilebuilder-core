@@ -180,4 +180,4 @@ For cloud template resources, `template.definition.configSource=workspace` uses 
 - `--parent-id` is cloud-only because local resources do not have a directory tree.
 - Cloud resource writes require the matching client write APIs on the backend.
 - Resource add/edit uses flags only; JSON input files are not supported.
-- `res browse` is present but not implemented.
+- Use `res list`, `res search`, and `res get` to browse resources.

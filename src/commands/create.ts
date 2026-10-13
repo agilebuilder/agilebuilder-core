@@ -7,8 +7,9 @@ import { renderCreateResult } from '../output/cli-renderers.js';
 import { LocalResourceRepository } from '../resources/local-repository.js';
 import { TemplateEngine } from '../template/engine.js';
 import { cloudResourceToGenerateOptions } from '../template/cloud-resource.js';
-import { parseVarAssignments, parseVarsJson } from '../template/variables.js';
+import { parseVarAssignments } from '../template/variables.js';
 import { WorkspaceStore } from '../workspace/store.js';
+import { ConfigStore } from '../config/store.js';
 import { LOCAL_SPACE_ID } from '../shared/constants.js';
 import { CloudResourceRepository } from '../resources/cloud-repository.js';
 import type { TemplateConfig } from '../template/config.js';
@@ -23,13 +24,48 @@ interface CreateOptions {
   overwrite?: boolean;
   keepGit?: boolean;
   allowHooks?: boolean;
+  interactive?: boolean;
   json?: boolean;
 }
 
 async function loadVariables(options: CreateOptions): Promise<Record<string, unknown>> {
-  const fromFile = options.vars
-    ? parseVarsJson(JSON.parse(await readFile(options.vars, 'utf8')))
-    : {};
+  let fromFile: Record<string, unknown> = {};
+  if (options.vars) {
+    let raw: string;
+    try {
+      raw = await readFile(options.vars, 'utf8');
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      throw new AppError({
+        code: 'TEMPLATE_VARS_FILE_INVALID',
+        message: t('create.varsFileReadFailed', { path: options.vars }),
+        suggestion: code === 'ENOENT'
+          ? 'Check that the file path is correct.'
+          : 'Check that the file is readable.',
+        category: 'validation',
+      });
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new AppError({
+        code: 'TEMPLATE_VARS_FILE_INVALID',
+        message: t('create.varsFileInvalidJson', { path: options.vars }),
+        suggestion: 'The --vars file must contain a single JSON object.',
+        category: 'validation',
+      });
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new AppError({
+        code: 'TEMPLATE_VARS_FILE_INVALID',
+        message: t('create.varsFileInvalidJson', { path: options.vars }),
+        suggestion: 'The --vars file must contain a single JSON object.',
+        category: 'validation',
+      });
+    }
+    fromFile = parsed as Record<string, unknown>;
+  }
   return {
     ...fromFile,
     ...parseVarAssignments(options.var),
@@ -53,8 +89,24 @@ export function createCreateCommand(): Command {
     .option('--overwrite', 'Allow writing into non-empty target directory')
     .option('--keep-git', 'Keep .git directory when copying template')
     .option('--allow-hooks', 'Allow template hooks')
+    .option('--interactive', t('create.interactive.description'))
     .option('--json', 'Output JSON')
     .action(async (resourceId: string | undefined, options: CreateOptions) => {
+      if (options.interactive && options.json) {
+        throw new AppError({
+          code: 'INTERACTIVE_JSON_CONFLICT',
+          message: t('create.interactive.jsonConflict'),
+          category: 'validation',
+        });
+      }
+      if (options.interactive && !process.stdin.isTTY) {
+        throw new AppError({
+          code: 'INTERACTIVE_NOT_TTY',
+          message: t('create.interactive.notTty'),
+          category: 'validation',
+        });
+      }
+
       const variables = await loadVariables(options);
       let gitUrl = options.gitUrl;
       let branch = options.branch;
@@ -96,6 +148,8 @@ export function createCreateCommand(): Command {
         }
       }
 
+      const config = ConfigStore.load();
+      const allowHooks = options.allowHooks ?? config.template.allowHooksDefault;
       const result = await engine.generateFromGit({
         gitUrl,
         branch,
@@ -105,7 +159,8 @@ export function createCreateCommand(): Command {
         templateConfig,
         overwrite: options.overwrite,
         keepGit: options.keepGit,
-        allowHooks: options.allowHooks,
+        allowHooks,
+        interactive: options.interactive,
       });
 
       writeSuccess(result, options, renderCreateResult);

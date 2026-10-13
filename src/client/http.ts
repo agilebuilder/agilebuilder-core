@@ -1,6 +1,6 @@
 import { APP_VERSION, CLIENT_TYPE } from '../shared/constants.js';
 import { getDeviceId } from '../device/device-id.js';
-import { AppError } from '../errors/app-error.js';
+import { AppError, type ErrorCategory } from '../errors/app-error.js';
 import { getBackendEndpoints } from './backend.js';
 
 export interface ApiResult<T> {
@@ -8,6 +8,11 @@ export interface ApiResult<T> {
   message: string;
   data: T;
 }
+
+const API_CODE_MAP: Record<number, { code: string; category: ErrorCategory }> = {
+  1008: { code: 'RESOURCE_NOT_FOUND', category: 'resource' },
+  1011: { code: 'PRO_ACCESS_REQUIRED', category: 'permission' },
+};
 
 export interface RequestOptions {
   token?: string;
@@ -54,10 +59,11 @@ async function parseResponse<T>(response: Response): Promise<T> {
   ) {
     const result = json as ApiResult<T>;
     if (result.code !== 0) {
+      const mapped = API_CODE_MAP[result.code];
       throw new AppError({
-        code: `API_${result.code}`,
+        code: mapped?.code ?? `API_${result.code}`,
         message: result.message,
-        category: result.code === 40100 ? 'auth' : 'network',
+        category: mapped?.category ?? (result.code === 40100 ? 'auth' : 'network'),
         details: result.data,
       });
     }

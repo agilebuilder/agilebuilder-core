@@ -1,65 +1,64 @@
-name: Bug Report
-description: Report a reproducible problem in AgileBuilder Core.
-title: "[Bug] "
-labels:
-  - bug
+name: Bug report
+description: Report a reproducible AgileBuilder Core issue
+title: "[Bug]: "
+labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Please redact tokens, local paths, workspace IDs, device IDs, and any private backend URLs before submitting.
-  - type: textarea
-    id: summary
+        Thanks for reporting an issue. Please remove tokens, API keys, device IDs, workspace IDs, resource IDs, private paths, and internal URLs before submitting.
+  - type: input
+    id: version
     attributes:
-      label: Summary
-      description: Describe the problem clearly and concisely.
+      label: AgileBuilder version
+      description: Run `ag --version`.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - CLI
+        - MCP
+        - Authentication
+        - Workspace
+        - Resources
+        - Template generation
+        - Packaging
+        - Documentation
     validations:
       required: true
   - type: textarea
     id: steps
     attributes:
-      label: Steps To Reproduce
-      description: List the exact steps needed to reproduce the issue.
+      label: Reproduction steps
+      description: Provide the smallest set of commands or actions that reproduce the issue.
       placeholder: |
         1. Run `ag ...`
-        2. Choose ...
-        3. Observe ...
+        2. Observe ...
     validations:
       required: true
   - type: textarea
     id: expected
     attributes:
-      label: Expected Behavior
+      label: Expected behavior
     validations:
       required: true
   - type: textarea
     id: actual
     attributes:
-      label: Actual Behavior
-    validations:
-      required: true
-  - type: input
-    id: version
-    attributes:
-      label: Version
-      description: Output of `ag --version`
-      placeholder: "1.0.3"
-    validations:
-      required: true
-  - type: dropdown
-    id: os
-    attributes:
-      label: Operating System
-      options:
-        - Windows
-        - macOS
-        - Linux
-        - Other
+      label: Actual behavior
     validations:
       required: true
   - type: textarea
     id: logs
     attributes:
-      label: Relevant Logs
-      description: Paste sanitized logs only. Do not include secrets.
+      label: Sanitized logs
       render: shell
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Node.js version, package manager, shell, and whether this is local or cloud workspace.

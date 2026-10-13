@@ -8,7 +8,6 @@ import { cloudResourceToGenerateOptions } from '../../template/cloud-resource.js
 import type { MCPContext } from '../context.js';
 import type { TemplateConfig } from '../../template/config.js';
 
-const localRepository = new LocalResourceRepository();
 const cloudRepository = new CloudResourceRepository();
 
 export interface ResolvedTemplate {
@@ -26,6 +25,7 @@ export async function resolveTemplateResourceRef(
   resourceId: string,
 ): Promise<ResolvedTemplate> {
   if (context.isLocalSpace) {
+    const localRepository = new LocalResourceRepository();
     const local = await localRepository.require(resourceId);
     if (local.type !== 'template') {
       throw new AppError({
@@ -105,8 +105,8 @@ export async function resolveTemplateResourceRef(
         templateConfig: source.templateConfig,
         source: 'cloud',
       };
-    } catch {
-      // continue searching
+    } catch (error) {
+      if (!isResourceNotFoundError(error)) throw error;
     }
   }
 
@@ -121,8 +121,7 @@ function isResourceNotFoundError(error: unknown): boolean {
   if (!(error instanceof AppError)) {
     return false;
   }
-  return error.category === 'resource'
-    || error.code === 'HTTP_404'
+  return error.code === 'HTTP_404'
     || error.code === 'API_404'
     || /NOT_FOUND/i.test(error.code);
 }

@@ -10,6 +10,7 @@ import type {
   LocalResourceStoreData,
   ResourceType,
   TemplateResource,
+  TemplateVariableInfo,
   UpdateResourceInput,
 } from './types.js';
 
@@ -173,6 +174,19 @@ export class LocalResourceRepository {
     return resource;
   }
 
+  async saveTemplateVariables(id: string, variables: TemplateVariableInfo[]): Promise<TemplateResource | null> {
+    const store = await this.load();
+    const index = store.items.findIndex((item) => item.id === id && item.type === 'template');
+    if (index === -1) {
+      return null;
+    }
+    const current = store.items[index] as TemplateResource;
+    const resource: TemplateResource = { ...current, variables, updatedAt: now() };
+    store.items[index] = resource;
+    await this.save(store);
+    return resource;
+  }
+
   async remove(id: string): Promise<boolean> {
     const store = await this.load();
     const nextItems = store.items.filter((item) => item.id !== id);
@@ -185,7 +199,8 @@ export class LocalResourceRepository {
   }
 
   private async load(): Promise<LocalResourceStoreData> {
-    return normalizeStore(await readJsonFile(this.filePath, EMPTY_STORE));
+    const raw = await readJsonFile(this.filePath, EMPTY_STORE);
+    return normalizeStore({ ...raw, items: [...raw.items] });
   }
 
   private async save(store: LocalResourceStoreData): Promise<void> {
