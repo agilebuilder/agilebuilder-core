@@ -183,6 +183,10 @@ market:
     - react
     - typescript
   version: 1.0.0
+  # Main fields (name/summary/description) are the default language (English).
+  # Optional per-locale overrides for non-default languages, keyed by locale:
+  metadata-zh:
+    name: 前端应用模板
 ```
 
 规则：
